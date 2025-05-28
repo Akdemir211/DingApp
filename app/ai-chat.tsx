@@ -5,7 +5,7 @@ import { Colors, Spacing, FontSizes, BorderRadius } from '@/constants/Theme';
 import { useAuth } from '@/context/AuthContext';
 import { ArrowLeft, Send, X, Edit, Trash } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
-import { getGeminiStreamResponse } from '@/lib/gemini';
+import { getGeminiStreamResponse, getGeminiResponse } from '@/lib/gemini';
 import * as AIChatService from '@/lib/aiChatService';
 import { ChatMessage, UserInfo } from '@/lib/aiChatService';
 import { useFocusEffect } from '@react-navigation/native';
@@ -28,6 +28,19 @@ const GREETING_MESSAGE: Omit<ChatMessage, 'id'> = {
 // Yazı animasyonu süreleri
 const LETTER_DELAY = 10; // milisaniye
 const MIN_DELAY = 5; // minimum gecikme
+
+/**
+ * UUID v4 formatına uygun benzersiz bir ID oluşturur (crypto olmadan)
+ */
+function generateUUID(): string {
+  let dt = new Date().getTime();
+  const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = (dt + Math.random() * 16) % 16 | 0;
+    dt = Math.floor(dt / 16);
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+  return uuid;
+}
 
 export default function AIChatScreen() {
   const { user } = useAuth();
@@ -234,17 +247,135 @@ export default function AIChatScreen() {
       let fullResponse = '';
       setStreamingContent('');
       
-      // Her gelen parçayı ekrana yazdır
-      for await (const chunk of stream) {
-        if (chunk.text) {
-          fullResponse += chunk.text;
-          setStreamingContent(fullResponse);
+      // Stream kontrolü
+      if (!stream) {
+        throw new Error('Stream nesnesi bulunamadı');
+      }
+
+      // Console içeriği
+      console.log("Stream tipi:", typeof stream);
+      console.log("Stream özellikleri:", Object.keys(stream));
+      console.log("Symbol.asyncIterator var mı:", Symbol.asyncIterator in stream);
+      
+      // Stream yanıtı çözme - tipleri sırayla kontrol et
+      if (stream.text) {
+        // 1. Durum: Nesnenin kendisi direkt metin içeriyorsa
+        console.log("Metin içeren yanıt alındı (1)");
+        fullResponse = stream.text;
+        setStreamingContent(fullResponse);
+      } 
+      else if (stream.response && stream.response.text) {
+        // 2. Durum: Yanıt bir response objesi içindeyse
+        console.log("Response objesi içinde yanıt alındı (2)");
+        fullResponse = stream.response.text;
+        setStreamingContent(fullResponse);
+      }
+      else if (typeof stream[Symbol.asyncIterator] === 'function') {
+        // 3. Durum: Async iterator kullanarak stream işle
+        console.log("Stream asyncIterator yanıt işleniyor (3)");
+        
+        try {
+          for await (const chunk of stream) {
+            console.log("Chunk alındı:", chunk);
+            
+            if (chunk) {
+              // Chunk'ın formatını kontrol et
+              if (typeof chunk === 'string') {
+                fullResponse += chunk;
+              } 
+              else if (chunk.text) {
+                fullResponse += chunk.text;
+              }
+              else if (chunk.response && chunk.response.text) {
+                fullResponse += chunk.response.text;
+              }
+              else if (chunk.content) {
+                fullResponse += chunk.content;
+              }
+              else if (typeof chunk === 'object') {
+                // Nesnenin içindeki metni bulmaya çalış
+                const textContent = JSON.stringify(chunk);
+                fullResponse += textContent.substring(0, 100); // İlk 100 karakter
+              }
+              
+              // UI'ı güncelle
+              setStreamingContent(fullResponse);
+            }
+          }
+        } catch (streamError) {
+          console.error("Stream işleme hatası:", streamError);
+          
+          if (fullResponse) {
+            console.log("Stream kesintiye uğradı, alınan kısmi yanıt kullanılacak");
+          } else {
+            // Manuel olarak .next() kullanmayı dene
+            if (typeof stream.next === 'function') {
+              console.log("Manuel next() ile yanıt alınmaya çalışılıyor");
+              try {
+                const result = await stream.next();
+                if (result && !result.done && result.value) {
+                  if (typeof result.value === 'string') {
+                    fullResponse = result.value;
+                  } else if (result.value.text) {
+                    fullResponse = result.value.text;
+                  }
+                  setStreamingContent(fullResponse);
+                }
+              } catch (nextError) {
+                console.error("Manuel next() hatası:", nextError);
+                throw new Error("Stream yanıtı alınamadı: " + streamError);
+              }
+            } else {
+              throw new Error("Stream yanıtı alınamadı: " + streamError);
+            }
+          }
+        }
+      } 
+      else if (typeof stream.then === 'function') {
+        // 4. Durum: Promise ise
+        console.log("Promise yanıt işleniyor (4)");
+        const result = await stream;
+        
+        if (typeof result === 'string') {
+          fullResponse = result;
+        } else if (result && result.text) {
+          fullResponse = result.text;
+        } else if (result && result.response && result.response.text) {
+          fullResponse = result.response.text;
+        } else {
+          console.log("Bilinmeyen Promise sonucu:", result);
+          fullResponse = JSON.stringify(result).substring(0, 100);
+        }
+        
+        setStreamingContent(fullResponse);
+      }
+      else {
+        // 5. Durum: Ne olduğunu anlamaya çalış
+        console.log("Bilinmeyen yanıt formatı (5):", typeof stream, stream);
+        
+        // Stringfy ve ilk 100 karakteri göster
+        const streamStr = JSON.stringify(stream);
+        console.log("JSON olarak stream:", streamStr.substring(0, 100) + "...");
+        
+        if (typeof stream === 'string') {
+          fullResponse = stream;
+        } else {
+          // Düz bir metin oluştur
+          fullResponse = "Yanıt alındı ancak gösterilemiyor. Lütfen tekrar deneyin.";
         }
       }
       
-      // Stream tamamlandığında mesaj listesine ekle
+      // Yeterince uzun bir yanıt yoksa
+      if (!fullResponse || fullResponse.length < 5) {
+        throw new Error('Geçerli bir yanıt alınamadı (çok kısa)');
+      }
+      
+      // Benzersiz ID oluştur - UUID formatında
+      const uniqueId = generateUUID();
+      
+      // Yanıtı mesaj listesine ekle
       const aiMessage: ChatMessage = {
-        id: Date.now().toString(),
+        id: uniqueId,
         role: 'assistant',
         content: fullResponse,
         timestamp: new Date()
@@ -253,31 +384,56 @@ export default function AIChatScreen() {
       setMessages(prev => [...prev, aiMessage]);
       setStreamingContent('');
       
-      // Veritabanına kaydet
+      // Mesajı kaydederken bağlantı hatası olabilir, try/catch içine al
       if (user) {
-        await AIChatService.addChatMessage(user.id, {
-          role: aiMessage.role,
-          content: aiMessage.content,
-          timestamp: aiMessage.timestamp
-        });
+        try {
+          await AIChatService.addChatMessage(user.id, {
+            role: aiMessage.role,
+            content: aiMessage.content,
+            timestamp: aiMessage.timestamp
+          });
+        } catch (dbError) {
+          console.error('Veritabanı hatası:', dbError);
+          // Veritabanı hatası kullanıcı deneyimini etkilemez
+        }
       }
       
-      // Kullanıcı bilgileri için yapay zeka yanıtını analiz et
-      await processAIResponseForUserInfo(fullResponse, newMessage);
+      // Kullanıcı bilgileri işleme
+      if (fullResponse) {
+        try {
+          await processAIResponseForUserInfo(fullResponse, newMessage);
+        } catch (profileError) {
+          console.warn('Kullanıcı profili işleme hatası:', profileError);
+          // Bu hata kullanıcı deneyimini etkilemez
+        }
+      }
       
-    } catch (error) {
-      console.error('Stream işleme hatası:', error);
+      return true;
+    } catch (error: any) {
+      console.error('Yanıt işleme hatası:', error);
       setStreamingContent('');
       
-      // Hata durumunda yine de bir mesaj göster
-      const errorMessage: ChatMessage = {
-        id: Date.now().toString(),
-        role: 'assistant',
-        content: 'Üzgünüm, yanıt alırken bir sorun oluştu. Lütfen tekrar deneyin.',
-        timestamp: new Date()
-      };
+      // Kullanıcıya daha açıklayıcı hata mesajı göster
+      let errorMessage: ChatMessage;
+      
+      if (error.toString().includes('network') || error.toString().includes('bağlantı')) {
+        errorMessage = {
+          id: generateUUID(),
+          role: 'assistant',
+          content: 'İnternet bağlantı sorunu yaşanıyor. Lütfen bağlantınızı kontrol edip tekrar deneyin.',
+          timestamp: new Date()
+        };
+      } else {
+        errorMessage = {
+          id: generateUUID(),
+          role: 'assistant',
+          content: 'Üzgünüm, yanıt alırken bir sorun oluştu. Lütfen tekrar deneyin.',
+          timestamp: new Date()
+        };
+      }
       
       setMessages(prev => [...prev, errorMessage]);
+      return false;
     }
   };
 
@@ -356,49 +512,95 @@ export default function AIChatScreen() {
   const handleSend = async () => {
     if (!newMessage.trim() || isLoading || !user) return;
 
+    // UUID formatında ID oluştur
+    const messageId = generateUUID();
+    const messageText = newMessage.trim(); // Mesaj içeriğini sakla
+
     const userMessage: ChatMessage = {
-      id: Date.now().toString(),
+      id: messageId,
       role: 'user',
-      content: newMessage.trim(),
+      content: messageText,
       timestamp: new Date()
     };
 
+    // Önce kullanıcı mesajını ekle
     setMessages(prev => [...prev, userMessage]);
-    
-    // Veritabanına kullanıcı mesajını kaydet
-    await AIChatService.addChatMessage(user.id, {
-      role: userMessage.role,
-      content: userMessage.content,
-      timestamp: userMessage.timestamp
-    });
-    
     setNewMessage('');
     setIsLoading(true);
-
+    
     try {
-      // Sohbet geçmişi 
-      const chatHistory = getChatHistory();
+      // Veritabanına kullanıcı mesajını kaydet
+      await AIChatService.addChatMessage(user.id, {
+        role: userMessage.role,
+        content: userMessage.content,
+        timestamp: userMessage.timestamp
+      });
+    } catch (dbError) {
+      console.error('Veritabanı hatası (mesaj kaydedilirken):', dbError);
+      // Veritabanı hatası sessizce yönetilir, kullanıcı deneyimini etkilemez
+    }
+
+    // Mobil cihazda ağ bağlantısı için biraz bekle
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    let retryCount = 0;
+    const maxRetries = 2;
+    
+    async function attemptGetResponse() {
+      try {
+        // Sohbet geçmişi 
+        const chatHistory = getChatHistory();
+        
+        // Mesaj çok uzun mu kontrol et
+        const truncatedMessage = messageText.length > 500 
+          ? messageText.substring(0, 500) + "..." 
+          : messageText;
+        
+        console.log("Gemini yanıtı isteniyor...");
+        
+        // AI yanıtı için istek
+        const stream = await getGeminiStreamResponse(truncatedMessage, chatHistory, userInfo);
+        
+        // Stream yanıtını işle
+        await processStreamResponse(stream);
+        
+        return true; // Başarılı
+      } catch (error) {
+        console.error(`Yanıt hatası (deneme ${retryCount + 1}/${maxRetries}):`, error);
+        return false; // Başarısız
+      }
+    }
+    
+    // İlk deneme
+    let success = await attemptGetResponse();
+    
+    // Başarısızsa tekrar dene
+    while (!success && retryCount < maxRetries) {
+      retryCount++;
+      console.log(`Tekrar deneniyor (${retryCount}/${maxRetries})...`);
       
-      // Stream yanıtı al
-      const stream = await getGeminiStreamResponse(userMessage.content, chatHistory, userInfo);
-      
-      // Stream yanıtını işle ve UI'a yansıt
-      await processStreamResponse(stream);
-    } catch (error) {
-      console.error('Gemini API hatası:', error);
+      // Kısa bekleme
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      success = await attemptGetResponse();
+    }
+    
+    // Tüm denemeler başarısızsa
+    if (!success) {
+      console.error("Tüm denemeler başarısız oldu");
       
       // Hata durumunda kullanıcıya bilgi ver
       const errorMessage: ChatMessage = {
-        id: Date.now().toString(),
+        id: generateUUID(),
         role: 'assistant',
-        content: 'Üzgünüm, şu anda yanıt veremiyorum. Lütfen daha sonra tekrar deneyin.',
+        content: 'Üzgünüm, şu anda yanıt alamıyorum. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.',
         timestamp: new Date()
       };
       
       setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
     }
+    
+    // Her durumda yükleme durumunu kapat
+    setIsLoading(false);
   };
 
   const formatTime = (date: Date) => {

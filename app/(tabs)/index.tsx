@@ -9,6 +9,7 @@ import { router } from 'expo-router';
 import { ArrowRight, MessageSquare, Clock, Users, Bot } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import { supabase } from '@/lib/supabase';
+import { eventEmitter, Events } from '@/lib/eventEmitter';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
@@ -95,14 +96,30 @@ export default function HomeScreen() {
     if (user) {
       fetchUserData();
     }
+
+    // Kullanıcı verisi güncellendiğinde dinle
+    const userDataUpdatedListener = () => {
+      if (user) {
+        fetchUserData();
+      }
+    };
+    
+    eventEmitter.on(Events.USER_DATA_UPDATED, userDataUpdatedListener);
+    
+    // Cleanup
+    return () => {
+      eventEmitter.off(Events.USER_DATA_UPDATED, userDataUpdatedListener);
+    };
   }, [user]);
 
   const fetchUserData = async () => {
     try {
+      if (!user || !user.id) return; // Kullanıcı veya ID yoksa işlemi sonlandır
+
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('id', user?.id)
+        .eq('id', user.id as string)
         .single();
 
       if (error) throw error;

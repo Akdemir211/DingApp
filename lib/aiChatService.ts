@@ -1,6 +1,23 @@
 import { supabase } from './supabase';
-import { v4 as uuidv4 } from 'uuid';
 import { PostgrestError } from '@supabase/supabase-js';
+
+/**
+ * UUID v4 formatına uygun benzersiz bir ID oluşturur (crypto olmadan)
+ * Standart UUID formatı: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+ */
+function generateUUID(): string {
+  let dt = new Date().getTime();
+  
+  // Zaman tabanlı rasgele karakter oluşturma için temel
+  const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = (dt + Math.random() * 16) % 16 | 0;
+    dt = Math.floor(dt / 16);
+    // x yerine rasgele, y yerine 8,9,A,B karakterleri (UUID v4 formatı gereği)
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+  
+  return uuid;
+}
 
 // Kullanıcı bilgileri tipi
 export interface UserInfo {
@@ -159,7 +176,7 @@ export async function createAssignment(
   assignment: Omit<UserAssignment, 'id' | 'userId' | 'createdAt'>
 ): Promise<string | null> {
   try {
-    const id = uuidv4();
+    const id = generateUUID();
     
     const { error } = await supabase
       .from('user_assignments')
@@ -253,7 +270,7 @@ export async function addChatMessage(
   message: Omit<ChatMessage, 'id'>
 ): Promise<string | null> {
   try {
-    const id = uuidv4();
+    const id = generateUUID();
     
     const { error } = await supabase
       .from('ai_chat_history')

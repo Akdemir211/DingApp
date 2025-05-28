@@ -11,6 +11,9 @@ import { Card } from '@/components/UI/Card';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 
+// Yeni olay yayınlama için EventEmitter
+import { eventEmitter, Events } from '@/lib/eventEmitter';
+
 const ProFeature = ({ icon, title }: { icon: React.ReactNode, title: string }) => (
   <View style={styles.featureItem}>
     <View style={styles.featureIcon}>
@@ -27,6 +30,20 @@ export default function ProUpgradeScreen() {
   const [promoCode, setPromoCode] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  const refreshUserDataAndNavigate = async () => {
+    try {
+      // Pro üyelik durumu güncellendikten sonra olay yayınla
+      eventEmitter.emit(Events.USER_DATA_UPDATED);
+      
+      // Kısa bir gecikme sonrası ana sayfaya dön
+      setTimeout(() => {
+        router.replace('/(tabs)');
+      }, 300);
+    } catch (error: any) {
+      console.error('User data refresh error:', error.message);
+    }
+  };
+
   const handleUpgrade = async () => {
     if (!user) return;
 
@@ -42,7 +59,7 @@ export default function ProUpgradeScreen() {
 
       if (error) throw error;
 
-      router.back();
+      await refreshUserDataAndNavigate();
     } catch (error: any) {
       console.error('Pro üyelik yükseltme hatası:', error.message);
       setError('Pro üyelik yükseltme başarısız oldu. Lütfen tekrar deneyin.');
@@ -68,7 +85,7 @@ export default function ProUpgradeScreen() {
 
         if (error) throw error;
 
-        router.back();
+        await refreshUserDataAndNavigate();
       } else {
         setError('Geçersiz promosyon kodu');
       }

@@ -13,6 +13,7 @@ import { JoinRoomModal } from '@/components/Chat/JoinRoomModal';
 import { ChatRoom } from '@/components/Chat/ChatRoom';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { eventEmitter, Events } from '@/lib/eventEmitter';
 
 export default function ChatScreen() {
   const { user } = useAuth();
@@ -28,14 +29,30 @@ export default function ChatScreen() {
     if (user) {
       fetchUserData();
     }
+
+    // Kullanıcı verisi güncellendiğinde dinle
+    const userDataUpdatedListener = () => {
+      if (user) {
+        fetchUserData();
+      }
+    };
+    
+    eventEmitter.on(Events.USER_DATA_UPDATED, userDataUpdatedListener);
+    
+    // Cleanup
+    return () => {
+      eventEmitter.off(Events.USER_DATA_UPDATED, userDataUpdatedListener);
+    };
   }, [user]);
 
   const fetchUserData = async () => {
     try {
+      if (!user || !user.id) return;
+
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('id', user?.id)
+        .eq('id', user.id)
         .single();
 
       if (error) throw error;

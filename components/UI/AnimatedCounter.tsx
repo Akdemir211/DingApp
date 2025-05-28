@@ -5,7 +5,8 @@ import { FontSizes, Colors } from '@/constants/Theme';
 
 // Make sure the value is a proper number string (e.g., "01", "59")
 const formatNumberString = (value: number): string => {
-  return value < 10 ? `0${value}` : `${value}`;
+  const num = Math.floor(value);
+  return num < 10 ? `0${num}` : `${num}`;
 };
 
 const AnimatedText = Animated.createAnimatedComponent(Text);
@@ -28,15 +29,15 @@ const AnimatedNumber = ({ value, fontSize = FontSizes.xxxl, fontFamily = 'Inter-
   }, [value]);
 
   const animatedProps = useAnimatedProps(() => {
+    const num = Math.floor(animatedValue.value);
     return {
-      text: formatNumberString(Math.floor(animatedValue.value)),
+      children: num < 10 ? `0${num}` : `${num}`,
     };
   });
 
   return (
     <AnimatedText
       style={[styles.number, { fontSize, fontFamily, color }]}
-      // @ts-ignore - text is a valid prop for AnimatedText
       animatedProps={animatedProps}
     >
       {formatNumberString(value)}

@@ -84,7 +84,7 @@ const SettingsItem = ({
       
       {showNotification && (
         <Animated.View style={[styles.notification, notificationStyle]}>
-          <Text style={styles.notificationText}>Zaten Pro Kullanıcısısınız</Text>
+          <Text style={styles.notificationText}>Zaten Pro Kullanıcısınız</Text>
         </Animated.View>
       )}
     </TouchableOpacity>

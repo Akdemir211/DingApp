@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Colors, Spacing, FontSizes, BorderRadius } from '@/constants/Theme';
-import { Send, ArrowLeft, Users } from 'lucide-react-native';
-import { useChat } from '@/hooks/useChat';
+import { Card } from '@/components/UI/Card';
+import { Button } from '@/components/UI/Button';
 import { useAuth } from '@/context/AuthContext';
+import { router } from 'expo-router';
+import { MessageSquare, Clock, Users, ArrowLeft } from 'lucide-react-native';
+import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
+import { useChat } from '@/hooks/useChat';
 import { Database } from '@/types/supabase';
 import { supabase } from '@/lib/supabase';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
@@ -24,14 +28,35 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [room, setRoom] = useState<Room | null>(null);
   const [memberCount, setMemberCount] = useState(0);
+  const [users, setUsers] = useState<{[key: string]: {name: string}}>({});
   const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     loadMessages();
     loadRoomDetails();
+    loadUsers();
     subscribeToMessages();
     subscribeToMembers();
   }, [roomId]);
+
+  const loadUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name');
+      
+      if (error) throw error;
+
+      const userMap = (data || []).reduce((acc: {[key: string]: {name: string}}, user) => {
+        acc[user.id] = { name: user.name || 'Anonim Kullanıcı' };
+        return acc;
+      }, {});
+
+      setUsers(userMap);
+    } catch (error) {
+      console.error('Error loading users:', error);
+    }
+  };
 
   const loadRoomDetails = async () => {
     try {
@@ -177,7 +202,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
                   isOwnMessage ? styles.ownMessage : styles.otherMessage
                 ]}>
                   {!isOwnMessage && showAvatar && (
-                    <Text style={styles.messageSender}>Josh Swain</Text>
+                    <Text style={styles.messageSender}>{users[message.user_id]?.name || 'Anonim Kullanıcı'}</Text>
                   )}
                   <Text style={styles.messageText}>{message.content}</Text>
                   <Text style={styles.messageTime}>
@@ -210,7 +235,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
             onPress={handleSend}
             disabled={!newMessage.trim() || loading}
           >
-            <Send size={20} color={Colors.text.primary} />
+            <MessageSquare size={20} color={Colors.text.primary} />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

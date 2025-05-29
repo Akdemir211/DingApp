@@ -19,6 +19,13 @@ import {
 } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import { supabase } from '@/lib/supabase';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withSpring,
+  withSequence,
+  withDelay
+} from 'react-native-reanimated';
 
 const ProfileStatCard = ({ 
   icon, 
@@ -41,17 +48,45 @@ const ProfileStatCard = ({
 const SettingsItem = ({ 
   icon, 
   title, 
-  onPress 
+  onPress,
+  showProBadge
 }: { 
   icon: React.ReactNode, 
   title: string, 
-  onPress: () => void 
+  onPress: () => void,
+  showProBadge?: boolean
 }) => {
+  const [showNotification, setShowNotification] = useState(false);
+  const notificationScale = useSharedValue(0);
+  
+  const notificationStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: notificationScale.value }]
+  }));
+
+  const handlePress = () => {
+    if (showProBadge) {
+      setShowNotification(true);
+      notificationScale.value = withSequence(
+        withSpring(1),
+        withDelay(2000, withSpring(0))
+      );
+      setTimeout(() => setShowNotification(false), 2500);
+    } else {
+      onPress();
+    }
+  };
+
   return (
-    <TouchableOpacity style={styles.settingsItem} onPress={onPress}>
+    <TouchableOpacity style={styles.settingsItem} onPress={handlePress}>
       <View style={styles.settingsItemIcon}>{icon}</View>
       <Text style={styles.settingsItemTitle}>{title}</Text>
       <ChevronRight size={20} color={Colors.text.secondary} />
+      
+      {showNotification && (
+        <Animated.View style={[styles.notification, notificationStyle]}>
+          <Text style={styles.notificationText}>Zaten Pro Kullanıcısısınız</Text>
+        </Animated.View>
+      )}
     </TouchableOpacity>
   );
 };
@@ -77,7 +112,6 @@ export default function ProfileScreen() {
   useEffect(() => {
     fetchUserStats();
 
-    // Realtime subscription for user profile updates
     const userSubscription = supabase
       .channel('user_updates')
       .on('postgres_changes', {
@@ -90,7 +124,6 @@ export default function ProfileScreen() {
       })
       .subscribe();
 
-    // Realtime subscription for study time updates
     const studySubscription = supabase
       .channel('study_updates')
       .on('postgres_changes', {
@@ -103,7 +136,6 @@ export default function ProfileScreen() {
       })
       .subscribe();
 
-    // Realtime subscription for message count updates
     const messageSubscription = supabase
       .channel('message_updates')
       .on('postgres_changes', {
@@ -127,7 +159,6 @@ export default function ProfileScreen() {
     if (!user) return;
 
     try {
-      // Kullanıcı bilgilerini al
       const { data: userProfile } = await supabase
         .from('users')
         .select('*')
@@ -136,7 +167,6 @@ export default function ProfileScreen() {
 
       setUserData(userProfile);
 
-      // Toplam çalışma süresini al
       const { data: studyData } = await supabase
         .from('study_leaderboard')
         .select('total_duration')
@@ -145,7 +175,6 @@ export default function ProfileScreen() {
 
       setTotalStudyTime(studyData ? studyData.total_duration || 0 : 0);
 
-      // Toplam mesaj sayısını al
       const { count } = await supabase
         .from('chat_messages')
         .select('*', { count: 'exact', head: true })
@@ -235,6 +264,7 @@ export default function ProfileScreen() {
                 icon={<Crown size={20} color={Colors.primary[400]} />}
                 title={userData?.is_pro ? "Pro Kullanıcı" : "Pro'ya Yükselt"}
                 onPress={handleUpgradePro}
+                showProBadge={userData?.is_pro}
               />
               <SettingsItem 
                 icon={<HelpCircle size={20} color={Colors.primary[400]} />}
@@ -385,6 +415,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: Colors.darkGray[800],
+    position: 'relative',
   },
   settingsItemIcon: {
     marginRight: Spacing.md,
@@ -398,5 +429,27 @@ const styles = StyleSheet.create({
   },
   signOutButton: {
     marginTop: Spacing.md,
+  },
+  notification: {
+    position: 'absolute',
+    top: -40,
+    right: Spacing.lg,
+    backgroundColor: Colors.primary[500],
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  notificationText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: FontSizes.sm,
+    color: Colors.text.primary,
   },
 });

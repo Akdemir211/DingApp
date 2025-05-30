@@ -26,6 +26,7 @@
     "react-native-screens": "~3.29.0",
     "react-native-url-polyfill": "^2.0.0",
     "react-native-web": "~0.19.6",
+    "react-native-webview": "13.6.4",
     "uuid": "^11.1.0"
   },
   "devDependencies": {

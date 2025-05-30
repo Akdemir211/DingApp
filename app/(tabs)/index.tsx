@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Card } from '@/components/UI/Card';
 import { Button } from '@/components/UI/Button';
 import { router } from 'expo-router';
-import { ArrowRight, MessageSquare, Clock, Users, Bot } from 'lucide-react-native';
+import { ArrowRight, MessageSquare, Clock, Users, Bot, Video } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import { supabase } from '@/lib/supabase';
 import { eventEmitter, Events } from '@/lib/eventEmitter';
@@ -97,7 +97,6 @@ export default function HomeScreen() {
       fetchUserData();
     }
 
-    // Kullanıcı verisi güncellendiğinde dinle
     const userDataUpdatedListener = () => {
       if (user) {
         fetchUserData();
@@ -106,7 +105,6 @@ export default function HomeScreen() {
     
     eventEmitter.on(Events.USER_DATA_UPDATED, userDataUpdatedListener);
     
-    // Cleanup
     return () => {
       eventEmitter.off(Events.USER_DATA_UPDATED, userDataUpdatedListener);
     };
@@ -114,12 +112,12 @@ export default function HomeScreen() {
 
   const fetchUserData = async () => {
     try {
-      if (!user || !user.id) return; // Kullanıcı veya ID yoksa işlemi sonlandır
+      if (!user || !user.id) return;
 
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('id', user.id as string)
+        .eq('id', user.id)
         .single();
 
       if (error) throw error;
@@ -190,6 +188,13 @@ export default function HomeScreen() {
               title="Çalışma Oturumları"
               description="Çalışma süresini takip et ve arkadaşlarınla yarış"
               onPress={() => router.push('/(tabs)/study')}
+            />
+
+            <FeatureCard 
+              icon={<Video size={24} color={Colors.primary[500]} />}
+              title="Watch Room"
+              description="Arkadaşlarınla beraber video izle ve sohbet et"
+              onPress={() => router.push('/watch')}
             />
             
             <TouchableOpacity 

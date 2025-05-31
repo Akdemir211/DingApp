@@ -214,12 +214,11 @@ export async function addChatMessage(
  */
 export async function clearChatHistory(userId: string): Promise<boolean> {
   try {
-    // Selamlama mesajı dışındaki tüm mesajları sil
+    // Tüm sohbet geçmişini sil
     const { error } = await supabase
       .from('ai_chat_history')
       .delete()
-      .eq('user_id', userId)
-      .neq('role', 'greeting');
+      .eq('user_id', userId);
 
     if (error) throw error;
     

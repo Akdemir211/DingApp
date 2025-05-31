@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
 import { Colors, Spacing, FontSizes, BorderRadius } from '@/constants/Theme';
 import { useAuth } from '@/context/AuthContext';
-import { ArrowLeft, Send, Users } from 'lucide-react-native';
+import { ArrowLeft, Send, Users, Play, Pause } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import { supabase } from '@/lib/supabase';
 import { WebView } from 'react-native-webview';
@@ -22,6 +22,11 @@ interface WatchRoomProps {
   onClose: () => void;
 }
 
+interface VideoState {
+  is_playing: boolean;
+  playback_time: number;
+}
+
 interface Message {
   id: string;
   user_id: string;
@@ -36,36 +41,115 @@ interface User {
   avatar_url: string | null;
 }
 
-const VideoPlayer = ({ videoUrl }: { videoUrl: string }) => {
+const VideoPlayer = ({ 
+  videoUrl, 
+  isCreator,
+  videoState,
+  onPlayPause,
+  webViewRef
+}: { 
+  videoUrl: string;
+  isCreator: boolean;
+  videoState: VideoState;
+  onPlayPause: () => void;
+  webViewRef: React.RefObject<WebView>;
+}) => {
   const embedUrl = getEmbedUrl(videoUrl);
   const aspectRatio = Platform.OS === 'web' ? 16/9 : undefined;
 
+  // YouTube Player API'sini enjekte et
+  const injectedJavaScript = `
+    var tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    var firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+    var player;
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        events: {
+          'onStateChange': onPlayerStateChange
+        }
+      });
+    }
+
+    function onPlayerStateChange(event) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'stateChange',
+        state: event.data
+      }));
+    }
+
+    true;
+  `;
+
   if (Platform.OS === 'web') {
     return (
-      <iframe
-        src={embedUrl}
-        style={{
-          width: '100%',
-          height: '100%',
-          border: 'none',
-          aspectRatio,
-        }}
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowFullScreen
-      />
+      <View style={styles.videoContainer}>
+        <iframe
+          id="player"
+          src={embedUrl}
+          style={{
+            width: '100%',
+            height: '100%',
+            border: 'none',
+            aspectRatio,
+          }}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+        {isCreator && (
+          <TouchableOpacity 
+            style={styles.playPauseButton}
+            onPress={onPlayPause}
+          >
+            {videoState.is_playing ? (
+              <Pause size={24} color={Colors.text.primary} />
+            ) : (
+              <Play size={24} color={Colors.text.primary} />
+            )}
+          </TouchableOpacity>
+        )}
+      </View>
     );
   }
 
   return (
-    <WebView
-      source={{ uri: embedUrl }}
-      style={{ flex: 1, backgroundColor: 'transparent' }}
-      allowsFullscreenVideo
-      allowsInlineMediaPlayback
-      mediaPlaybackRequiresUserAction={false}
-      javaScriptEnabled
-      domStorageEnabled
-    />
+    <View style={styles.videoContainer}>
+      <WebView
+        ref={webViewRef}
+        source={{ uri: embedUrl }}
+        style={styles.webview}
+        allowsFullscreenVideo
+        allowsInlineMediaPlayback
+        mediaPlaybackRequiresUserAction={false}
+        javaScriptEnabled
+        injectedJavaScript={injectedJavaScript}
+        onMessage={(event) => {
+          try {
+            const data = JSON.parse(event.nativeEvent.data);
+            if (data.type === 'stateChange') {
+              // YouTube player states: -1 (unstarted), 0 (ended), 1 (playing), 2 (paused), 3 (buffering), 5 (video cued)
+              console.log('Player state changed:', data.state);
+            }
+          } catch (error) {
+            console.error('Error parsing player message:', error);
+          }
+        }}
+      />
+      {isCreator && (
+        <TouchableOpacity 
+          style={styles.playPauseButton}
+          onPress={onPlayPause}
+        >
+          {videoState.is_playing ? (
+            <Pause size={24} color={Colors.text.primary} />
+          ) : (
+            <Play size={24} color={Colors.text.primary} />
+          )}
+        </TouchableOpacity>
+      )}
+    </View>
   );
 };
 
@@ -79,7 +163,7 @@ const getEmbedUrl = (url: string) => {
   }
   
   if (videoId) {
-    return `https://www.youtube.com/embed/${videoId}?playsinline=1&modestbranding=1&enablejsapi=1&rel=0&fs=1`;
+    return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&playsinline=1&modestbranding=1&rel=0&fs=1`;
   }
   
   if (url.includes('vimeo.com')) {
@@ -96,10 +180,17 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
   const [newMessage, setNewMessage] = useState('');
   const [members, setMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
+  const [videoState, setVideoState] = useState<VideoState>({
+    is_playing: false,
+    playback_time: 0
+  });
   const scrollViewRef = useRef<ScrollView>(null);
+  const webViewRef = useRef<WebView>(null);
   const [isLandscape, setIsLandscape] = useState(
     SCREEN_WIDTH > SCREEN_HEIGHT
   );
+
+  const isCreator = user?.id === room.created_by;
 
   useEffect(() => {
     const subscription = Dimensions.addEventListener('change', ({ window }) => {
@@ -114,6 +205,7 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
   useEffect(() => {
     fetchMessages();
     fetchMembers();
+    fetchVideoState();
     
     const messagesSubscription = supabase
       .channel('watch_room_messages')
@@ -139,11 +231,67 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
       })
       .subscribe();
 
+    const videoStateSubscription = supabase
+      .channel('video_states')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'video_states',
+        filter: `room_id=eq.${roomId}`
+      }, (payload) => {
+        if (payload.new) {
+          setVideoState(payload.new as VideoState);
+          
+          // Video durumunu WebView'da güncelle
+          const js = payload.new.is_playing
+            ? 'player.playVideo()'
+            : 'player.pauseVideo()';
+          
+          webViewRef.current?.injectJavaScript(js);
+        }
+      })
+      .subscribe();
+
     return () => {
       messagesSubscription.unsubscribe();
       membersSubscription.unsubscribe();
+      videoStateSubscription.unsubscribe();
     };
   }, [roomId]);
+
+  const fetchVideoState = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('video_states')
+        .select('*')
+        .eq('room_id', roomId)
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        setVideoState(data);
+      }
+    } catch (error) {
+      console.error('Error fetching video state:', error);
+    }
+  };
+
+  const handlePlayPause = async () => {
+    if (!isCreator) return;
+
+    try {
+      const newState = !videoState.is_playing;
+      
+      const { error } = await supabase
+        .from('video_states')
+        .update({ is_playing: newState })
+        .eq('room_id', roomId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating video state:', error);
+    }
+  };
 
   const fetchMessages = async () => {
     try {
@@ -291,7 +439,13 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
 
       <View style={getContentStyles()}>
         <View style={getVideoSectionStyles()}>
-          <VideoPlayer videoUrl={room.video_url} />
+          <VideoPlayer 
+            videoUrl={room.video_url} 
+            isCreator={isCreator}
+            videoState={videoState}
+            onPlayPause={handlePlayPause}
+            webViewRef={webViewRef}
+          />
         </View>
 
         <View style={getChatSectionStyles()}>
@@ -411,8 +565,27 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
   },
+  videoContainer: {
+    flex: 1,
+    position: 'relative',
+  },
+  webview: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  playPauseButton: {
+    position: 'absolute',
+    bottom: Spacing.md,
+    right: Spacing.md,
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.round,
+    backgroundColor: Colors.primary[500],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   videoSection: {
-    height: SCREEN_WIDTH * (9/16), // 16:9 aspect ratio
+    height: SCREEN_WIDTH * (9/16),
     backgroundColor: Colors.background.darker,
     borderRadius: BorderRadius.md,
     overflow: 'hidden',

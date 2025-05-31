@@ -2,7 +2,7 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { Colors } from '@/constants/Theme';
-import { Home, MessageSquare, Clock, User } from 'lucide-react-native';
+import { Home, MessageSquare, Clock, User, Video } from 'lucide-react-native';
 
 export default function TabLayout() {
   const { theme } = useTheme();
@@ -49,6 +49,15 @@ export default function TabLayout() {
           title: 'Study',
           tabBarIcon: ({ color, size }) => (
             <Clock size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="watch"
+        options={{
+          title: 'Watch',
+          tabBarIcon: ({ color, size }) => (
+            <Video size={size} color={color} />
           ),
         }}
       />

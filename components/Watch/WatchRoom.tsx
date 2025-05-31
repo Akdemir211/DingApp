@@ -49,7 +49,7 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
     const messagesSubscription = supabase
       .channel('watch_room_messages')
       .on('postgres_changes', {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'watch_room_messages',
         filter: `room_id=eq.${roomId}`

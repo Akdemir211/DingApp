@@ -6,7 +6,7 @@ import { Button } from '@/components/UI/Button';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay, Easing } from 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
-import { MessageSquare, Clock, Users } from 'lucide-react-native';
+import { MessageSquare, Clock, Users, Brain } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 
 export default function WelcomeScreen() {
@@ -85,6 +85,11 @@ export default function WelcomeScreen() {
         <View style={styles.featureItem}>
           <Users size={24} color={Colors.primary[400]} />
           <Text style={styles.featureText}>Sıralama tablolu ortak çalışma alanları</Text>
+        </View>
+
+        <View style={styles.featureItem}>
+          <Brain size={24} color={Colors.primary[400]} />
+          <Text style={styles.featureText}>Yapay zeka destekli eğitim koçu</Text>
         </View>
       </Animated.View>
       

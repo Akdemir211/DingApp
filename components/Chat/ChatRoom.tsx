@@ -10,7 +10,7 @@ import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import { useChat } from '@/hooks/useChat';
 import { Database } from '@/types/supabase';
 import { supabase } from '@/lib/supabase';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, SlideInRight, Layout } from 'react-native-reanimated';
 
 type Message = Database['public']['Tables']['chat_messages']['Row'];
 type Room = Database['public']['Tables']['chat_rooms']['Row'];
@@ -31,6 +31,11 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
   const [users, setUsers] = useState<{[key: string]: {name: string, photoUrl: string | null}}>({}); 
   const scrollViewRef = useRef<ScrollView>(null);
 
+  const containerStyle = useAnimatedStyle(() => ({
+    flex: 1,
+    backgroundColor: Colors.background.dark,
+  }));
+
   useEffect(() => {
     loadMessages();
     loadRoomDetails();
@@ -42,21 +47,18 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
 
   const loadUsers = async () => {
     try {
-      // Fetch user profiles
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id, name');
       
       if (userError) throw userError;
 
-      // Fetch profile photos
       const { data: photoData, error: photoError } = await supabase
         .from('profile_photos')
         .select('user_id, photo_url');
 
       if (photoError) throw photoError;
 
-      // Create user map with photos
       const userMap = (userData || []).reduce((acc: {[key: string]: {name: string, photoUrl: string | null}}, user) => {
         const photo = photoData?.find(p => p.user_id === user.id);
         acc[user.id] = { 
@@ -87,10 +89,99 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
     return () => subscription.unsubscribe();
   };
 
-  // ... (diğer fonksiyonlar aynı kalacak)
+  const loadMessages = async () => {
+    try {
+      const { data, error } = await fetchMessages(roomId);
+      if (error) throw error;
+      setMessages(data || []);
+    } catch (error) {
+      console.error('Error loading messages:', error);
+    }
+  };
+
+  const loadRoomDetails = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('chat_rooms')
+        .select('*')
+        .eq('id', roomId)
+        .single();
+
+      if (error) throw error;
+      setRoom(data);
+
+      const { count } = await supabase
+        .from('chat_room_members')
+        .select('*', { count: 'exact' })
+        .eq('room_id', roomId);
+
+      setMemberCount(count || 0);
+    } catch (error) {
+      console.error('Error loading room details:', error);
+    }
+  };
+
+  const subscribeToMessages = () => {
+    const subscription = supabase
+      .channel(`room_${roomId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'chat_messages',
+        filter: `room_id=eq.${roomId}`
+      }, () => {
+        loadMessages();
+      })
+      .subscribe();
+
+    return () => subscription.unsubscribe();
+  };
+
+  const subscribeToMembers = () => {
+    const subscription = supabase
+      .channel(`room_members_${roomId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'chat_room_members',
+        filter: `room_id=eq.${roomId}`
+      }, () => {
+        loadRoomDetails();
+      })
+      .subscribe();
+
+    return () => subscription.unsubscribe();
+  };
+
+  const handleSend = async () => {
+    if (!newMessage.trim() || loading) return;
+
+    setLoading(true);
+    try {
+      await sendMessage(roomId, newMessage.trim());
+      setNewMessage('');
+    } catch (error) {
+      console.error('Error sending message:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const scrollToBottom = () => {
+    scrollViewRef.current?.scrollToEnd({ animated: true });
+  };
+
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  };
 
   return (
-    <Animated.View style={containerStyle}>
+    <Animated.View 
+      style={containerStyle} 
+      entering={SlideInRight} 
+      layout={Layout.springify()}
+    >
       <View style={styles.header}>
         <TouchableOpacity onPress={onClose} style={styles.backButton}>
           <ArrowLeft size={24} color={Colors.text.primary} />
@@ -179,12 +270,122 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
 };
 
 const styles = StyleSheet.create({
-  // ... (mevcut stiller aynı kalacak)
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.md,
+    backgroundColor: Colors.background.card,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.darkGray[800],
+  },
+  backButton: {
+    padding: Spacing.sm,
+    marginRight: Spacing.sm,
+  },
+  headerInfo: {
+    flex: 1,
+  },
+  roomName: {
+    fontSize: FontSizes.lg,
+    fontFamily: 'Inter-Bold',
+    color: Colors.text.primary,
+  },
+  roomStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: Spacing.xs,
+  },
+  statsText: {
+    marginLeft: Spacing.xs,
+    fontSize: FontSizes.sm,
+    color: Colors.text.secondary,
+    fontFamily: 'Inter-Regular',
+  },
+  chatBackground: {
+    flex: 1,
+    backgroundColor: Colors.background.darker,
+  },
+  messagesContainer: {
+    flex: 1,
+  },
+  messagesContent: {
+    padding: Spacing.md,
+  },
+  messageWrapper: {
+    flexDirection: 'row',
+    marginBottom: Spacing.md,
+    alignItems: 'flex-end',
+  },
+  ownMessageWrapper: {
+    justifyContent: 'flex-end',
+  },
+  messageContainer: {
+    maxWidth: '80%',
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  ownMessage: {
+    backgroundColor: Colors.primary[600],
+    borderTopRightRadius: BorderRadius.xs,
+  },
+  otherMessage: {
+    backgroundColor: Colors.background.card,
+    borderTopLeftRadius: BorderRadius.xs,
+  },
+  messageSender: {
+    fontSize: FontSizes.sm,
+    color: Colors.primary[400],
+    marginBottom: Spacing.xs,
+    fontFamily: 'Inter-Medium',
+  },
+  messageText: {
+    fontSize: FontSizes.md,
+    color: Colors.text.primary,
+    fontFamily: 'Inter-Regular',
+  },
+  messageTime: {
+    fontSize: FontSizes.xs,
+    color: Colors.text.secondary,
+    marginTop: Spacing.xs,
+    alignSelf: 'flex-end',
+    fontFamily: 'Inter-Regular',
+  },
+  inputWrapper: {
+    backgroundColor: Colors.background.card,
+    borderTopWidth: 1,
+    borderTopColor: Colors.darkGray[800],
+    padding: Spacing.md,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  input: {
+    flex: 1,
+    backgroundColor: Colors.darkGray[800],
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    paddingTop: Spacing.md,
+    color: Colors.text.primary,
+    fontSize: FontSizes.md,
+    maxHeight: 100,
+    fontFamily: 'Inter-Regular',
+  },
+  sendButton: {
+    marginLeft: Spacing.sm,
+    padding: Spacing.sm,
+    backgroundColor: Colors.primary[600],
+    borderRadius: BorderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sendButtonDisabled: {
+    backgroundColor: Colors.darkGray[700],
+  },
   avatar: {
     width: 32,
     height: 32,
     borderRadius: 16,
     marginRight: Spacing.xs,
   },
-  // ... (diğer stiller)
 });

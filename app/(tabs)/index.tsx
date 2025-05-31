@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Card } from '@/components/UI/Card';
 import { Button } from '@/components/UI/Button';
 import { router } from 'expo-router';
-import { ArrowRight, MessageSquare, Clock, Users, Bot, Video, Brain } from 'lucide-react-native';
+import { ArrowRight, MessageSquare, Clock, Users, Bot, Video } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import { supabase } from '@/lib/supabase';
 import { eventEmitter, Events } from '@/lib/eventEmitter';
@@ -195,19 +195,6 @@ export default function HomeScreen() {
               title="Watch Room"
               description="Arkadaşlarınla beraber video izle ve sohbet et"
               onPress={() => router.push('/watch')}
-            />
-
-            <FeatureCard 
-              icon={<Brain size={24} color={Colors.primary[500]} />}
-              title="Yapay Zeka Destekli Eğitim Koçu"
-              description="Kişiselleştirilmiş eğitim koçunla çalışmalarını planla"
-              onPress={() => {
-                if (userData?.is_pro) {
-                  router.push('/ai-chat');
-                } else {
-                  router.push('/pro-upgrade');
-                }
-              }}
             />
             
             <TouchableOpacity 

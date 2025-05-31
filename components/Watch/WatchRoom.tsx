@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
 import { Colors, Spacing, FontSizes, BorderRadius } from '@/constants/Theme';
 import { useAuth } from '@/context/AuthContext';
 import { ArrowLeft, Send, Users } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import { supabase } from '@/lib/supabase';
 import { WebView } from 'react-native-webview';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface WatchRoomProps {
   roomId: string;
@@ -36,6 +38,7 @@ interface User {
 
 const VideoPlayer = ({ videoUrl }: { videoUrl: string }) => {
   const embedUrl = getEmbedUrl(videoUrl);
+  const aspectRatio = Platform.OS === 'web' ? 16/9 : undefined;
 
   if (Platform.OS === 'web') {
     return (
@@ -45,6 +48,7 @@ const VideoPlayer = ({ videoUrl }: { videoUrl: string }) => {
           width: '100%',
           height: '100%',
           border: 'none',
+          aspectRatio,
         }}
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowFullScreen
@@ -55,7 +59,7 @@ const VideoPlayer = ({ videoUrl }: { videoUrl: string }) => {
   return (
     <WebView
       source={{ uri: embedUrl }}
-      style={{ flex: 1 }}
+      style={{ flex: 1, backgroundColor: 'transparent' }}
       allowsFullscreenVideo
       allowsInlineMediaPlayback
       mediaPlaybackRequiresUserAction={false}
@@ -65,9 +69,7 @@ const VideoPlayer = ({ videoUrl }: { videoUrl: string }) => {
   );
 };
 
-// URL'yi embed formatına dönüştür
 const getEmbedUrl = (url: string) => {
-  // YouTube video ID'sini çıkar
   let videoId = '';
   
   if (url.includes('youtube.com/watch?v=')) {
@@ -77,11 +79,9 @@ const getEmbedUrl = (url: string) => {
   }
   
   if (videoId) {
-    // YouTube Embed URL'sini oluştur ve gerekli parametreleri ekle
     return `https://www.youtube.com/embed/${videoId}?playsinline=1&modestbranding=1&enablejsapi=1&rel=0&fs=1`;
   }
   
-  // Vimeo için kontrol
   if (url.includes('vimeo.com')) {
     const vimeoId = url.split('vimeo.com/')[1]?.split('?')[0];
     return `https://player.vimeo.com/video/${vimeoId}?playsinline=1`;
@@ -97,6 +97,19 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
   const [members, setMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
+  const [isLandscape, setIsLandscape] = useState(
+    SCREEN_WIDTH > SCREEN_HEIGHT
+  );
+
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setIsLandscape(window.width > window.height);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   useEffect(() => {
     fetchMessages();
@@ -227,6 +240,38 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
     });
   };
 
+  if (!room) {
+    return (
+      <View style={styles.container}>
+        <FloatingBubbleBackground />
+        <View style={styles.content}>
+          <Text style={styles.loadingText}>Yükleniyor...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const getContentStyles = () => {
+    if (Platform.OS === 'web') {
+      return styles.webContent;
+    }
+    return isLandscape ? styles.landscapeContent : styles.content;
+  };
+
+  const getVideoSectionStyles = () => {
+    if (Platform.OS === 'web') {
+      return styles.webVideoSection;
+    }
+    return isLandscape ? styles.landscapeVideoSection : styles.videoSection;
+  };
+
+  const getChatSectionStyles = () => {
+    if (Platform.OS === 'web') {
+      return styles.webChatSection;
+    }
+    return isLandscape ? styles.landscapeChatSection : styles.chatSection;
+  };
+
   return (
     <View style={styles.container}>
       <FloatingBubbleBackground />
@@ -244,12 +289,12 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
         </View>
       </View>
 
-      <View style={styles.content}>
-        <View style={styles.videoSection}>
+      <View style={getContentStyles()}>
+        <View style={getVideoSectionStyles()}>
           <VideoPlayer videoUrl={room.video_url} />
         </View>
 
-        <View style={styles.chatSection}>
+        <View style={getChatSectionStyles()}>
           <ScrollView
             ref={scrollViewRef}
             style={styles.messagesContainer}
@@ -322,6 +367,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: Spacing.lg,
     paddingTop: Platform.OS === 'ios' ? 60 : Spacing.lg,
+    backgroundColor: Colors.background.darker,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.darkGray[800],
   },
   backButton: {
     width: 40,
@@ -353,24 +401,56 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    flexDirection: Platform.OS === 'web' ? 'row' : 'column',
+    flexDirection: 'column',
+  },
+  landscapeContent: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  webContent: {
+    flex: 1,
+    flexDirection: 'row',
   },
   videoSection: {
-    ...(Platform.OS === 'web' ? {
-      flex: 2,
-      margin: Spacing.md,
-    } : {
-      height: '40%',
-      margin: Spacing.md,
-    }),
+    height: SCREEN_WIDTH * (9/16), // 16:9 aspect ratio
+    backgroundColor: Colors.background.darker,
+    borderRadius: BorderRadius.md,
+    overflow: 'hidden',
+    margin: Spacing.md,
+  },
+  landscapeVideoSection: {
+    flex: 2,
+    margin: Spacing.md,
     backgroundColor: Colors.background.darker,
     borderRadius: BorderRadius.md,
     overflow: 'hidden',
   },
+  webVideoSection: {
+    flex: 2,
+    margin: Spacing.md,
+    backgroundColor: Colors.background.darker,
+    borderRadius: BorderRadius.md,
+    overflow: 'hidden',
+    aspectRatio: 16/9,
+  },
   chatSection: {
     flex: 1,
     margin: Spacing.md,
-    marginTop: Platform.OS === 'web' ? Spacing.md : 0,
+    marginTop: 0,
+    backgroundColor: Colors.background.card,
+    borderRadius: BorderRadius.md,
+    overflow: 'hidden',
+  },
+  landscapeChatSection: {
+    flex: 1,
+    margin: Spacing.md,
+    backgroundColor: Colors.background.card,
+    borderRadius: BorderRadius.md,
+    overflow: 'hidden',
+  },
+  webChatSection: {
+    flex: 1,
+    margin: Spacing.md,
     backgroundColor: Colors.background.card,
     borderRadius: BorderRadius.md,
     overflow: 'hidden',
@@ -425,6 +505,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     padding: Spacing.md,
     backgroundColor: Colors.background.darker,
+    borderTopWidth: 1,
+    borderTopColor: Colors.darkGray[800],
   },
   input: {
     flex: 1,
@@ -449,5 +531,11 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.5,
+  },
+  loadingText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSizes.lg,
+    color: Colors.text.secondary,
+    textAlign: 'center',
   },
 });

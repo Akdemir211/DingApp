@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Image } from 'react-native';
 import { Colors, Spacing, FontSizes, BorderRadius } from '@/constants/Theme';
 import { TimerDisplay } from '@/components/UI/AnimatedCounter';
 import { useAuth } from '@/context/AuthContext';
@@ -30,6 +30,7 @@ export default function StudyRoom({ roomId, room, onClose }: StudyRoomProps) {
   const { user } = useAuth();
   const [members, setMembers] = useState<any[]>([]);
   const [memberTimers, setMemberTimers] = useState<Record<string, MemberTimer>>({});
+  const [memberPhotos, setMemberPhotos] = useState<Record<string, string>>({});
   const { 
     isRunning, 
     isPaused,
@@ -87,6 +88,21 @@ export default function StudyRoom({ roomId, room, onClose }: StudyRoomProps) {
           }
         });
         setMemberTimers(newTimers);
+
+        // Fetch profile photos
+        const userIds = roomMembers.map(member => member.user_id);
+        const { data: photoData } = await supabase
+          .from('profile_photos')
+          .select('user_id, photo_url')
+          .in('user_id', userIds);
+
+        if (photoData) {
+          const photoMap = photoData.reduce((acc: Record<string, string>, photo) => {
+            acc[photo.user_id] = photo.photo_url;
+            return acc;
+          }, {});
+          setMemberPhotos(photoMap);
+        }
       }
     } catch (error) {
       console.error('Error fetching members:', error);
@@ -119,9 +135,21 @@ export default function StudyRoom({ roomId, room, onClose }: StudyRoomProps) {
       })
       .subscribe();
 
+    const photosSubscription = supabase
+      .channel('profile_photos')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'profile_photos'
+      }, () => {
+        fetchMembers();
+      })
+      .subscribe();
+
     return () => {
       membersSubscription.unsubscribe();
       sessionsSubscription.unsubscribe();
+      photosSubscription.unsubscribe();
     };
   }, [roomId]);
 
@@ -267,6 +295,12 @@ export default function StudyRoom({ roomId, room, onClose }: StudyRoomProps) {
           
           {members.map((member) => (
             <View key={member.user_id} style={styles.memberCard}>
+              <Image 
+                source={{ 
+                  uri: memberPhotos[member.user_id] || 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1' 
+                }} 
+                style={styles.memberAvatar} 
+              />
               <View style={styles.memberInfo}>
                 <Text style={styles.memberName}>
                   {member.user?.name || 'Anonim Kullanıcı'}
@@ -398,15 +432,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   memberCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.darkGray[800],
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
   },
+  memberAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.round,
+    marginRight: Spacing.md,
+  },
   memberInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flex: 1,
   },
   memberName: {
     fontFamily: 'Inter-SemiBold',
@@ -416,6 +456,7 @@ const styles = StyleSheet.create({
   memberTimer: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 4,
   },
   memberTimerText: {
     fontFamily: 'Inter-Regular',
@@ -427,6 +468,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     fontSize: FontSizes.sm,
     color: Colors.text.secondary,
+    marginTop: 4,
   },
   loadingText: {
     fontFamily: 'Inter-Regular',

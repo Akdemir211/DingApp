@@ -310,7 +310,7 @@ ${userContext}
 
 KONUŞMA TARZI:
 - Her zaman Türkçe konuş.
-- Kısa ve öz açıklamalar yap.
+- Oldukça kısa ve öz açıklamalar yap.
 - Cümle ve soru tekrarından kaçın.
 - Bazen ufak şakalar yap ancak dozunda olsun.
 - Motivasyon verici cümleler kullan.

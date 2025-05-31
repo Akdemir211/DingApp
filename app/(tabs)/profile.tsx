@@ -22,7 +22,8 @@ import {
   Target,
   BookOpen,
   Brain,
-  Clock12
+  Clock12,
+  Lock
 } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import { supabase } from '@/lib/supabase';

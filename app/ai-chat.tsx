@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-// ... diğer importlar aynı kalacak
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Check, Clock } from 'lucide-react-native';
+import { Colors, BorderRadius, Spacing, FontSizes } from '@/constants/Theme';
+import { AIChatService } from '@/lib/aiChatService';
 
 // Ödev kartı komponenti
 const AssignmentCard = ({ assignment }: { assignment: any }) => {

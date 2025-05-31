@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Colors, Spacing, FontSizes, BorderRadius } from '@/constants/Theme';
 import { Card } from '@/components/UI/Card';
 import { Button } from '@/components/UI/Button';
@@ -28,7 +28,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [room, setRoom] = useState<Room | null>(null);
   const [memberCount, setMemberCount] = useState(0);
-  const [users, setUsers] = useState<{[key: string]: {name: string, photoUrl: string | null}}>({}); 
+  const [users, setUsers] = useState<{[key: string]: {name: string}}>({});
   const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -37,32 +37,18 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
     loadUsers();
     subscribeToMessages();
     subscribeToMembers();
-    subscribeToPhotos();
   }, [roomId]);
 
   const loadUsers = async () => {
     try {
-      // Fetch user profiles
-      const { data: userData, error: userError } = await supabase
+      const { data, error } = await supabase
         .from('users')
         .select('id, name');
       
-      if (userError) throw userError;
+      if (error) throw error;
 
-      // Fetch profile photos
-      const { data: photoData, error: photoError } = await supabase
-        .from('profile_photos')
-        .select('user_id, photo_url');
-
-      if (photoError) throw photoError;
-
-      // Create user map with photos
-      const userMap = (userData || []).reduce((acc: {[key: string]: {name: string, photoUrl: string | null}}, user) => {
-        const photo = photoData?.find(p => p.user_id === user.id);
-        acc[user.id] = { 
-          name: user.name || 'Anonim Kullanıcı',
-          photoUrl: photo?.photo_url || null
-        };
+      const userMap = (data || []).reduce((acc: {[key: string]: {name: string}}, user) => {
+        acc[user.id] = { name: user.name || 'Anonim Kullanıcı' };
         return acc;
       }, {});
 
@@ -72,22 +58,110 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
     }
   };
 
-  const subscribeToPhotos = () => {
+  const loadRoomDetails = async () => {
+    try {
+      const { data: roomData, error: roomError } = await supabase
+        .from('chat_rooms')
+        .select('*')
+        .eq('id', roomId)
+        .single();
+
+      if (roomError) throw roomError;
+      setRoom(roomData);
+
+      const { count, error: countError } = await supabase
+        .from('chat_room_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('room_id', roomId);
+
+      if (countError) throw countError;
+      setMemberCount(count || 0);
+    } catch (error) {
+      console.error('Error loading room details:', error);
+    }
+  };
+
+  const loadMessages = async () => {
+    try {
+      const data = await fetchMessages(roomId);
+      setMessages(data);
+      setTimeout(() => scrollToBottom(), 100);
+    } catch (error) {
+      console.error('Error loading messages:', error);
+    }
+  };
+
+  const subscribeToMessages = () => {
     const subscription = supabase
-      .channel('profile_photos_changes')
+      .channel(`room:${roomId}`)
       .on('postgres_changes', {
-        event: '*',
+        event: 'INSERT',
         schema: 'public',
-        table: 'profile_photos'
-      }, () => {
-        loadUsers();
+        table: 'chat_messages',
+        filter: `room_id=eq.${roomId}`,
+      }, (payload) => {
+        setMessages(prev => [...prev, payload.new as Message]);
+        setTimeout(() => scrollToBottom(), 100);
       })
       .subscribe();
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   };
 
-  // ... (diğer fonksiyonlar aynı kalacak)
+  const subscribeToMembers = () => {
+    const subscription = supabase
+      .channel(`members:${roomId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'chat_room_members',
+        filter: `room_id=eq.${roomId}`,
+      }, () => {
+        loadRoomDetails();
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  };
+
+  const scrollToBottom = () => {
+    scrollViewRef.current?.scrollToEnd({ animated: true });
+  };
+
+  const handleSend = async () => {
+    if (!newMessage.trim()) return;
+    
+    try {
+      setLoading(true);
+      await sendMessage(roomId, newMessage.trim());
+      setNewMessage('');
+    } catch (error) {
+      console.error('Error sending message:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTime = (timestamp: string) => {
+    return new Date(timestamp).toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  };
+
+  const containerStyle = useAnimatedStyle(() => ({
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: Colors.background.dark,
+    zIndex: 9999,
+  }));
 
   return (
     <Animated.View style={containerStyle}>
@@ -114,7 +188,6 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
           {messages.map((message, index) => {
             const isOwnMessage = message.user_id === user?.id;
             const showAvatar = !isOwnMessage && (!messages[index - 1] || messages[index - 1].user_id !== message.user_id);
-            const userInfo = users[message.user_id];
             
             return (
               <View
@@ -124,20 +197,12 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
                   isOwnMessage ? styles.ownMessageWrapper : null
                 ]}
               >
-                {!isOwnMessage && showAvatar && (
-                  <Image 
-                    source={{ 
-                      uri: userInfo?.photoUrl || 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1' 
-                    }} 
-                    style={styles.avatar} 
-                  />
-                )}
                 <View style={[
                   styles.messageContainer,
                   isOwnMessage ? styles.ownMessage : styles.otherMessage
                 ]}>
                   {!isOwnMessage && showAvatar && (
-                    <Text style={styles.messageSender}>{userInfo?.name}</Text>
+                    <Text style={styles.messageSender}>{users[message.user_id]?.name || 'Anonim Kullanıcı'}</Text>
                   )}
                   <Text style={styles.messageText}>{message.content}</Text>
                   <Text style={styles.messageTime}>
@@ -179,12 +244,122 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
 };
 
 const styles = StyleSheet.create({
-  // ... (mevcut stiller aynı kalacak)
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    marginRight: Spacing.xs,
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background.dark,
   },
-  // ... (diğer stiller)
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.md,
+    backgroundColor: Colors.background.darker,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.darkGray[800],
+  },
+  backButton: {
+    marginRight: Spacing.md,
+  },
+  headerInfo: {
+    flex: 1,
+  },
+  roomName: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: FontSizes.lg,
+    color: Colors.text.primary,
+  },
+  roomStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  statsText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSizes.sm,
+    color: Colors.text.secondary,
+    marginLeft: Spacing.xs,
+  },
+  chatBackground: {
+    flex: 1,
+    backgroundColor: Colors.background.dark,
+  },
+  messagesContainer: {
+    flex: 1,
+  },
+  messagesContent: {
+    padding: Spacing.md,
+  },
+  messageWrapper: {
+    marginVertical: Spacing.xs,
+    maxWidth: '80%',
+  },
+  ownMessageWrapper: {
+    alignSelf: 'flex-end',
+  },
+  messageContainer: {
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    maxWidth: '100%',
+  },
+  ownMessage: {
+    backgroundColor: Colors.primary[500],
+    borderTopRightRadius: BorderRadius.xs,
+  },
+  otherMessage: {
+    backgroundColor: Colors.darkGray[700],
+    borderTopLeftRadius: BorderRadius.xs,
+  },
+  messageSender: {
+    fontFamily: 'Inter-Medium',
+    fontSize: FontSizes.sm,
+    color: Colors.primary[400],
+    marginBottom: 2,
+  },
+  messageText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSizes.md,
+    color: Colors.text.primary,
+    lineHeight: 20,
+  },
+  messageTime: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSizes.xs,
+    color: Colors.text.secondary,
+    marginTop: 4,
+    alignSelf: 'flex-end',
+  },
+  inputWrapper: {
+    backgroundColor: Colors.background.darker,
+    borderTopWidth: 1,
+    borderTopColor: Colors.darkGray[800],
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    padding: Spacing.md,
+  },
+  input: {
+    flex: 1,
+    backgroundColor: Colors.darkGray[800],
+    borderRadius: BorderRadius.round,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Platform.OS === 'ios' ? Spacing.sm : Spacing.xs,
+    paddingRight: 40,
+    color: Colors.text.primary,
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSizes.md,
+    maxHeight: 100,
+    minHeight: 40,
+  },
+  sendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.round,
+    backgroundColor: Colors.primary[500],
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: Spacing.sm,
+  },
+  sendButtonDisabled: {
+    opacity: 0.5,
+  },
 });

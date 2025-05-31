@@ -214,22 +214,12 @@ export async function addChatMessage(
  */
 export async function clearChatHistory(userId: string): Promise<boolean> {
   try {
-    // Tüm sohbet geçmişini sil
     const { error } = await supabase
       .from('ai_chat_history')
       .delete()
       .eq('user_id', userId);
 
     if (error) throw error;
-    
-    // Yeni selamlama mesajı ekle
-    const greetingMessage: Omit<ChatMessage, 'id'> = {
-      role: 'assistant',
-      content: 'Merhaba! Ben senin yapay zeka destekli eğitim koçunum. Ders çalışma, sınavlara hazırlanma veya herhangi bir konuda sana yardımcı olabilirim. Seni daha iyi tanıyabilir miyim?',
-      timestamp: new Date()
-    };
-
-    await addChatMessage(userId, greetingMessage);
     return true;
   } catch (error) {
     console.error('Sohbet geçmişi temizleme hatası:', error);

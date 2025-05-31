@@ -157,12 +157,13 @@ export default function AccountSettingsScreen() {
         .from('profile_photos')
         .getPublicUrl(filePath);
 
+      // Use upsert with onConflict option to handle the unique constraint
       const { error: updateError } = await supabase
         .from('profile_photos')
-        .upsert({
-          user_id: user.id,
-          photo_url: publicUrl
-        });
+        .upsert(
+          { user_id: user.id, photo_url: publicUrl },
+          { onConflict: 'user_id' }
+        );
 
       if (updateError) throw updateError;
 

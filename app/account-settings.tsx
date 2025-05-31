@@ -12,38 +12,6 @@ import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
 import { eventEmitter, Events } from '@/lib/eventEmitter';
 
-const base64ToBlob = async (uri: string): Promise<{ blob: Blob; ext: string }> => {
-  // Extract content type and base64 data from data URI
-  const match = uri.match(/^data:([^;]+);base64,(.+)$/);
-  if (!match) {
-    throw new Error('Invalid data URI format');
-  }
-
-  const [, contentType, base64Data] = match;
-  const ext = contentType.split('/')[1] || 'jpg';
-
-  // Convert base64 to binary
-  const byteCharacters = atob(base64Data);
-  const byteArrays = [];
-
-  for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-    const slice = byteCharacters.slice(offset, offset + 512);
-    const byteNumbers = new Array(slice.length);
-    
-    for (let i = 0; i < slice.length; i++) {
-      byteNumbers[i] = slice.charCodeAt(i);
-    }
-    
-    const byteArray = new Uint8Array(byteNumbers);
-    byteArrays.push(byteArray);
-  }
-
-  return {
-    blob: new Blob(byteArrays, { type: contentType }),
-    ext
-  };
-};
-
 export default function AccountSettingsScreen() {
   const { user } = useAuth();
   const [name, setName] = useState('');
@@ -62,9 +30,9 @@ export default function AccountSettingsScreen() {
 
     fetchUserProfile();
 
-    // Realtime subscription for user profile updates
+    // Realtime subscription for profile updates
     const subscription = supabase
-      .channel('user_updates')
+      .channel('profile_updates')
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -84,19 +52,6 @@ export default function AccountSettingsScreen() {
     if (!user) return;
 
     try {
-      // Fetch profile photo using maybeSingle() instead of single()
-      const { data: photoData, error: photoError } = await supabase
-        .from('profile_photos')
-        .select('photo_url')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (photoError) throw photoError;
-      
-      if (photoData) {
-        setAvatarUrl(photoData.photo_url);
-      }
-
       // Fetch user data
       const { data: userData, error: userError } = await supabase
         .from('users')
@@ -107,6 +62,18 @@ export default function AccountSettingsScreen() {
       if (userError) throw userError;
       if (userData) {
         setName(userData.name || '');
+      }
+
+      // Fetch profile photo
+      const { data: photoData, error: photoError } = await supabase
+        .from('profile_photos')
+        .select('photo_url')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (photoError) throw photoError;
+      if (photoData) {
+        setAvatarUrl(photoData.photo_url);
       }
     } catch (error: any) {
       console.error('Error fetching user profile:', error);
@@ -133,63 +100,57 @@ export default function AccountSettingsScreen() {
   };
 
   const uploadAvatar = async (uri: string) => {
+    if (!user) return;
+    
     try {
-      if (!user) return;
       setLoading(true);
       setError(null);
 
-      let blob: Blob;
-      let fileExt: string;
+      // Fetch the image as a blob
+      const response = await fetch(uri);
+      const blob = await response.blob();
 
-      if (uri.startsWith('data:')) {
-        // Handle base64 data URI (web platform)
-        const { blob: b64Blob, ext } = await base64ToBlob(uri);
-        blob = b64Blob;
-        fileExt = ext;
-      } else {
-        // Handle file URI (native platforms)
-        const response = await fetch(uri);
-        blob = await response.blob();
-        fileExt = uri.split('.').pop() || 'jpg';
-      }
+      // Generate unique filename
+      const fileExt = uri.split('.').pop() || 'jpg';
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `photos/${fileName}`;
 
-      const fileName = `${user?.id}-${Math.random()}.${fileExt}`;
-      const filePath = `${fileName}`;
-
-      // Upload to profile_photos bucket
+      // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from('profile_photos')
-        .upload(filePath, blob, {
-          contentType: blob.type,
-          cacheControl: '3600',
-          upsert: false
-        });
+        .upload(filePath, blob);
 
       if (uploadError) throw uploadError;
 
+      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('profile_photos')
         .getPublicUrl(filePath);
 
-      // Use upsert with onConflict option to handle the unique constraint
+      // Update profile_photos table using upsert
       const { error: updateError } = await supabase
         .from('profile_photos')
         .upsert(
-          { user_id: user.id, photo_url: publicUrl },
-          { onConflict: 'user_id' }
+          { 
+            user_id: user.id, 
+            photo_url: publicUrl 
+          },
+          { 
+            onConflict: 'user_id',
+            ignoreDuplicates: false
+          }
         );
 
       if (updateError) throw updateError;
 
       setAvatarUrl(publicUrl);
-      
-      // Emit event to update profile photo across the app
-      eventEmitter.emit(Events.USER_DATA_UPDATED);
-      
       setSuccess('Profil fotoğrafı başarıyla güncellendi');
+      
+      // Notify other components
+      eventEmitter.emit(Events.USER_DATA_UPDATED);
     } catch (error: any) {
       console.error('Upload error:', error);
-      setError(error.message);
+      setError('Profil fotoğrafı güncellenirken bir hata oluştu');
     } finally {
       setLoading(false);
     }
@@ -210,10 +171,8 @@ export default function AccountSettingsScreen() {
 
       if (error) throw error;
 
-      // Emit event to update profile data across the app
-      eventEmitter.emit(Events.USER_DATA_UPDATED);
-      
       setSuccess('Profil başarıyla güncellendi');
+      eventEmitter.emit(Events.USER_DATA_UPDATED);
     } catch (error: any) {
       setError(error.message);
     } finally {
@@ -271,6 +230,7 @@ export default function AccountSettingsScreen() {
             <TouchableOpacity 
               style={styles.changeAvatarButton}
               onPress={handleImagePick}
+              disabled={loading}
             >
               <Camera size={20} color={Colors.text.primary} />
             </TouchableOpacity>

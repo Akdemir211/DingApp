@@ -105,7 +105,6 @@ export const CreateWatchRoomModal: React.FC<CreateWatchRoomModalProps> = ({
           </View>
 
           <Input
-            label="Oda Adı"
             value={name}
             onChangeText={setName}
             placeholder="Oda adını girin"

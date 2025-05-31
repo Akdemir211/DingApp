@@ -69,7 +69,7 @@ export default function SignInScreen() {
         
         <View style={styles.formContainer}>
           <Input
-            label=""
+            label={null}
             value={email}
             onChangeText={(text) => {
               setEmail(text);
@@ -83,7 +83,7 @@ export default function SignInScreen() {
           />
           
           <Input
-            label=""
+            label={null}
             value={password}
             onChangeText={(text) => {
               setPassword(text);

@@ -95,7 +95,7 @@ export default function SignUpScreen() {
         
         <View style={styles.formContainer}>
           <Input
-            label="İsim"
+            label={null}
             value={name}
             onChangeText={setName}
             placeholder="İsminizi girin"
@@ -105,7 +105,7 @@ export default function SignUpScreen() {
           />
           
           <Input
-            label=""
+            label={null}
             value={email}
             onChangeText={setEmail}
             placeholder="E-posta adresinizi girin"
@@ -116,7 +116,7 @@ export default function SignUpScreen() {
           />
           
           <Input
-            label="Şifre"
+            label={null}
             value={password}
             onChangeText={setPassword}
             placeholder="Şifre oluşturun"
@@ -126,7 +126,7 @@ export default function SignUpScreen() {
           />
           
           <Input
-            label="Şifre Tekrar"
+            label={null}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             placeholder="Şifrenizi tekrar girin"

@@ -265,10 +265,25 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
         .from('video_states')
         .select('*')
         .eq('room_id', roomId)
-        .single();
+        .maybeSingle(); // Changed from .single() to .maybeSingle()
 
       if (error) throw error;
-      if (data) {
+      
+      // If no video state exists, create one
+      if (!data) {
+        const { data: newState, error: createError } = await supabase
+          .from('video_states')
+          .insert({
+            room_id: roomId,
+            is_playing: false,
+            playback_time: 0
+          })
+          .select()
+          .single();
+
+        if (createError) throw createError;
+        if (newState) setVideoState(newState);
+      } else {
         setVideoState(data);
       }
     } catch (error) {

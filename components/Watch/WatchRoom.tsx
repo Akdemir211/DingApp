@@ -25,16 +25,20 @@ interface Message {
   user_id: string;
   content: string;
   created_at: string;
-  user?: {
-    name: string;
-  };
+  userName?: string;
+}
+
+interface User {
+  id: string;
+  name: string;
+  avatar_url: string | null;
 }
 
 export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [members, setMembers] = useState<any[]>([]);
+  const [members, setMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -49,10 +53,8 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
         schema: 'public',
         table: 'watch_room_messages',
         filter: `room_id=eq.${roomId}`
-      }, (payload) => {
-        const newMessage = payload.new as Message;
-        setMessages(prev => [...prev, newMessage]);
-        setTimeout(() => scrollToBottom(), 100);
+      }, () => {
+        fetchMessages(); // Fetch all messages again when a new one arrives
       })
       .subscribe();
 
@@ -76,18 +78,39 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
 
   const fetchMessages = async () => {
     try {
-      const { data, error } = await supabase
+      // First, fetch messages
+      const { data: messagesData, error: messagesError } = await supabase
         .from('watch_room_messages')
-        .select(`
-          *,
-          user:users(name)
-        `)
+        .select('*')
         .eq('room_id', roomId)
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
-      setMessages(data || []);
-      setTimeout(() => scrollToBottom(), 100);
+      if (messagesError) throw messagesError;
+
+      if (messagesData) {
+        // Get unique user IDs from messages
+        const userIds = [...new Set(messagesData.map(msg => msg.user_id))];
+
+        // Fetch user data for these IDs
+        const { data: usersData, error: usersError } = await supabase
+          .from('users')
+          .select('id, name')
+          .in('id', userIds);
+
+        if (usersError) throw usersError;
+
+        // Create a map of user IDs to names
+        const userMap = new Map(usersData?.map(user => [user.id, user.name]) || []);
+
+        // Combine message data with user names
+        const messagesWithUserNames = messagesData.map(message => ({
+          ...message,
+          userName: userMap.get(message.user_id) || 'Anonim Kullanıcı'
+        }));
+
+        setMessages(messagesWithUserNames);
+        setTimeout(() => scrollToBottom(), 100);
+      }
     } catch (error) {
       console.error('Error fetching messages:', error);
     }
@@ -95,20 +118,26 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
 
   const fetchMembers = async () => {
     try {
-      const { data, error } = await supabase
+      // First, fetch member user IDs
+      const { data: memberData, error: memberError } = await supabase
         .from('watch_room_members')
-        .select(`
-          user_id,
-          user:users(
-            id,
-            name,
-            avatar_url
-          )
-        `)
+        .select('user_id')
         .eq('room_id', roomId);
 
-      if (error) throw error;
-      setMembers(data || []);
+      if (memberError) throw memberError;
+
+      if (memberData) {
+        const userIds = memberData.map(member => member.user_id);
+
+        // Then fetch user details for these IDs
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('id, name, avatar_url')
+          .in('id', userIds);
+
+        if (userError) throw userError;
+        setMembers(userData || []);
+      }
     } catch (error) {
       console.error('Error fetching members:', error);
     }
@@ -214,7 +243,7 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
                     isOwnMessage ? styles.ownMessage : styles.otherMessage
                   ]}>
                     {!isOwnMessage && showAvatar && (
-                      <Text style={styles.messageSender}>{message.user?.name || 'Anonim Kullanıcı'}</Text>
+                      <Text style={styles.messageSender}>{message.userName}</Text>
                     )}
                     <Text style={styles.messageText}>{message.content}</Text>
                     <Text style={styles.messageTime}>

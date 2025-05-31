@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingVi
 import { router } from 'expo-router';
 import { Colors, Spacing, FontSizes, BorderRadius } from '@/constants/Theme';
 import { useAuth } from '@/context/AuthContext';
-import { ArrowLeft, Send, X, Edit, Trash } from 'lucide-react-native';
+import { ArrowLeft, Send, X, CreditCard as Edit, Trash } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import { getGeminiStreamResponse } from '@/lib/gemini';
 import * as AIChatService from '@/lib/aiChatService';

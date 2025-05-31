@@ -120,6 +120,7 @@ export default function AccountSettingsScreen() {
 
   const uploadAvatar = async (uri: string) => {
     try {
+      if (!user) return;
       setLoading(true);
       setError(null);
 
@@ -139,10 +140,11 @@ export default function AccountSettingsScreen() {
       }
 
       const fileName = `${user?.id}-${Math.random()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      const filePath = `${fileName}`;
 
+      // Upload to profile_photos bucket
       const { error: uploadError } = await supabase.storage
-        .from('avatars')
+        .from('profile_photos')
         .upload(filePath, blob, {
           contentType: blob.type,
           cacheControl: '3600',
@@ -152,13 +154,15 @@ export default function AccountSettingsScreen() {
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
+        .from('profile_photos')
         .getPublicUrl(filePath);
 
       const { error: updateError } = await supabase
-        .from('users')
-        .update({ avatar_url: publicUrl })
-        .eq('id', user?.id);
+        .from('profile_photos')
+        .upsert({
+          user_id: user.id,
+          photo_url: publicUrl
+        });
 
       if (updateError) throw updateError;
 

@@ -72,30 +72,6 @@ export default function RootLayout() {
             }} 
           />
           <Stack.Screen 
-            name="account-settings" 
-            options={{
-              presentation: 'card',
-              animation: 'slide_from_right',
-              animationDuration: 300,
-            }}
-          />
-          <Stack.Screen 
-            name="help-support" 
-            options={{
-              presentation: 'card',
-              animation: 'slide_from_right',
-              animationDuration: 300,
-            }}
-          />
-          <Stack.Screen 
-            name="ai-chat" 
-            options={{
-              presentation: 'card',
-              animation: 'slide_from_right',
-              animationDuration: 300,
-            }}
-          />
-          <Stack.Screen 
             name="+not-found" 
             options={{ 
               presentation: 'modal',

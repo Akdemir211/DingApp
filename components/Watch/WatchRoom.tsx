@@ -48,7 +48,6 @@ const VideoPlayer = ({
   const aspectRatio = Platform.OS === 'web' ? 16/9 : undefined;
   const webViewRef = useRef<WebView>(null);
 
-  // YouTube Player API entegrasyonu
   const injectedJavaScript = `
     let player;
     
@@ -76,7 +75,6 @@ const VideoPlayer = ({
       }));
     }
 
-    // Her 1 saniyede bir zaman güncellemesi gönder
     setInterval(() => {
       if (player && player.getCurrentTime) {
         window.ReactNativeWebView.postMessage(JSON.stringify({
@@ -268,7 +266,6 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
       if (data) {
         setVideoState(data);
       } else {
-        // İlk video durumunu oluştur
         const { error: insertError } = await supabase
           .from('watch_room_video_states')
           .insert({
@@ -286,7 +283,6 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
   };
 
   const handleVideoStateUpdate = (newState: VideoState) => {
-    // Son güncelleme zamanını kontrol et
     if (new Date(newState.lastUpdated) > new Date(lastUpdateRef.current)) {
       setVideoState(newState);
       lastUpdateRef.current = newState.lastUpdated;
@@ -324,8 +320,6 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
       console.error('Video state update error:', error);
     }
   };
-
-  // ... (diğer fonksiyonlar aynı kalacak)
 
   const getContentStyles = () => {
     if (Platform.OS === 'web') {
@@ -451,4 +445,163 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
   );
 };
 
-// ... (styles aynı kalacak)
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background.primary,
+  },
+  content: {
+    flex: 1,
+    flexDirection: 'column',
+  },
+  webContent: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  landscapeContent: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.medium,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.primary,
+  },
+  backButton: {
+    marginRight: Spacing.medium,
+  },
+  headerInfo: {
+    flex: 1,
+  },
+  roomName: {
+    fontSize: FontSizes.large,
+    fontWeight: 'bold',
+    color: Colors.text.primary,
+  },
+  roomStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: Spacing.small,
+  },
+  statsText: {
+    marginLeft: Spacing.small,
+    fontSize: FontSizes.small,
+    color: Colors.text.secondary,
+  },
+  videoSection: {
+    height: '40%',
+    backgroundColor: Colors.background.secondary,
+  },
+  webVideoSection: {
+    flex: 2,
+    backgroundColor: Colors.background.secondary,
+    margin: Spacing.medium,
+    borderRadius: BorderRadius.medium,
+    overflow: 'hidden',
+  },
+  landscapeVideoSection: {
+    flex: 2,
+    backgroundColor: Colors.background.secondary,
+    margin: Spacing.medium,
+    borderRadius: BorderRadius.medium,
+    overflow: 'hidden',
+  },
+  chatSection: {
+    flex: 1,
+    backgroundColor: Colors.background.primary,
+  },
+  webChatSection: {
+    flex: 1,
+    backgroundColor: Colors.background.primary,
+    margin: Spacing.medium,
+    borderRadius: BorderRadius.medium,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.border.primary,
+  },
+  landscapeChatSection: {
+    flex: 1,
+    backgroundColor: Colors.background.primary,
+    margin: Spacing.medium,
+    borderRadius: BorderRadius.medium,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.border.primary,
+  },
+  messagesContainer: {
+    flex: 1,
+  },
+  messagesContent: {
+    padding: Spacing.medium,
+  },
+  messageWrapper: {
+    marginBottom: Spacing.small,
+    flexDirection: 'row',
+  },
+  ownMessageWrapper: {
+    justifyContent: 'flex-end',
+  },
+  messageContainer: {
+    maxWidth: '80%',
+    padding: Spacing.medium,
+    borderRadius: BorderRadius.medium,
+  },
+  ownMessage: {
+    backgroundColor: Colors.primary,
+  },
+  otherMessage: {
+    backgroundColor: Colors.background.secondary,
+  },
+  messageSender: {
+    fontSize: FontSizes.small,
+    color: Colors.text.secondary,
+    marginBottom: Spacing.small,
+  },
+  messageText: {
+    fontSize: FontSizes.medium,
+    color: Colors.text.primary,
+  },
+  messageTime: {
+    fontSize: FontSizes.tiny,
+    color: Colors.text.secondary,
+    marginTop: Spacing.small,
+    alignSelf: 'flex-end',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    padding: Spacing.medium,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border.primary,
+    backgroundColor: Colors.background.primary,
+  },
+  input: {
+    flex: 1,
+    minHeight: 40,
+    maxHeight: 100,
+    backgroundColor: Colors.background.secondary,
+    borderRadius: BorderRadius.medium,
+    paddingHorizontal: Spacing.medium,
+    paddingVertical: Spacing.small,
+    marginRight: Spacing.medium,
+    color: Colors.text.primary,
+  },
+  sendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sendButtonDisabled: {
+    opacity: 0.5,
+  },
+  loadingText: {
+    fontSize: FontSizes.large,
+    color: Colors.text.primary,
+    textAlign: 'center',
+    marginTop: Spacing.large,
+  },
+});

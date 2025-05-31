@@ -10,6 +10,7 @@ import { ArrowLeft, Mail, Lock, User, Camera } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
+import { eventEmitter, Events } from '@/lib/eventEmitter';
 
 const base64ToBlob = async (uri: string): Promise<{ blob: Blob; ext: string }> => {
   // Extract content type and base64 data from data URI
@@ -67,8 +68,8 @@ export default function AccountSettingsScreen() {
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
-        table: 'users',
-        filter: `id=eq.${user?.id}`
+        table: 'profile_photos',
+        filter: `user_id=eq.${user?.id}`
       }, () => {
         fetchUserProfile();
       })
@@ -83,16 +84,29 @@ export default function AccountSettingsScreen() {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
+      // Fetch profile photo
+      const { data: photoData, error: photoError } = await supabase
+        .from('profile_photos')
+        .select('photo_url')
+        .eq('user_id', user.id)
+        .single();
+
+      if (photoError && photoError.code !== 'PGRST116') throw photoError;
+      
+      if (photoData) {
+        setAvatarUrl(photoData.photo_url);
+      }
+
+      // Fetch user data
+      const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('name, avatar_url')
+        .select('name')
         .eq('id', user.id)
         .single();
 
-      if (error) throw error;
-      if (data) {
-        setName(data.name || '');
-        setAvatarUrl(data.avatar_url);
+      if (userError) throw userError;
+      if (userData) {
+        setName(userData.name || '');
       }
     } catch (error: any) {
       console.error('Error fetching user profile:', error);
@@ -168,6 +182,10 @@ export default function AccountSettingsScreen() {
       if (updateError) throw updateError;
 
       setAvatarUrl(publicUrl);
+      
+      // Emit event to update profile photo across the app
+      eventEmitter.emit(Events.USER_DATA_UPDATED);
+      
       setSuccess('Profil fotoğrafı başarıyla güncellendi');
     } catch (error: any) {
       console.error('Upload error:', error);
@@ -192,6 +210,9 @@ export default function AccountSettingsScreen() {
 
       if (error) throw error;
 
+      // Emit event to update profile data across the app
+      eventEmitter.emit(Events.USER_DATA_UPDATED);
+      
       setSuccess('Profil başarıyla güncellendi');
     } catch (error: any) {
       setError(error.message);

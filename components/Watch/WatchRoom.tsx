@@ -54,7 +54,7 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
         table: 'watch_room_messages',
         filter: `room_id=eq.${roomId}`
       }, () => {
-        fetchMessages(); // Fetch all messages again when a new one arrives
+        fetchMessages();
       })
       .subscribe();
 
@@ -78,7 +78,6 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
 
   const fetchMessages = async () => {
     try {
-      // First, fetch messages
       const { data: messagesData, error: messagesError } = await supabase
         .from('watch_room_messages')
         .select('*')
@@ -88,10 +87,8 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
       if (messagesError) throw messagesError;
 
       if (messagesData) {
-        // Get unique user IDs from messages
         const userIds = [...new Set(messagesData.map(msg => msg.user_id))];
 
-        // Fetch user data for these IDs
         const { data: usersData, error: usersError } = await supabase
           .from('users')
           .select('id, name')
@@ -99,10 +96,8 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
 
         if (usersError) throw usersError;
 
-        // Create a map of user IDs to names
         const userMap = new Map(usersData?.map(user => [user.id, user.name]) || []);
 
-        // Combine message data with user names
         const messagesWithUserNames = messagesData.map(message => ({
           ...message,
           userName: userMap.get(message.user_id) || 'Anonim Kullanıcı'
@@ -118,7 +113,6 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
 
   const fetchMembers = async () => {
     try {
-      // First, fetch member user IDs
       const { data: memberData, error: memberError } = await supabase
         .from('watch_room_members')
         .select('user_id')
@@ -129,7 +123,6 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
       if (memberData) {
         const userIds = memberData.map(member => member.user_id);
 
-        // Then fetch user details for these IDs
         const { data: userData, error: userError } = await supabase
           .from('users')
           .select('id, name, avatar_url')
@@ -179,16 +172,26 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
   };
 
   const getEmbedUrl = (url: string) => {
-    if (url.includes('youtube.com') || url.includes('youtu.be')) {
-      const videoId = url.includes('youtube.com') 
-        ? url.split('v=')[1]?.split('&')[0]
-        : url.split('youtu.be/')[1]?.split('?')[0];
-      return `https://www.youtube.com/embed/${videoId}`;
+    // YouTube video ID'sini çıkar
+    let videoId = '';
+    
+    if (url.includes('youtube.com/watch?v=')) {
+      videoId = url.split('watch?v=')[1]?.split('&')[0] || '';
+    } else if (url.includes('youtu.be/')) {
+      videoId = url.split('youtu.be/')[1]?.split('?')[0] || '';
     }
+    
+    if (videoId) {
+      // YouTube Embed URL'sini oluştur ve gerekli parametreleri ekle
+      return `https://www.youtube.com/embed/${videoId}?playsinline=1&modestbranding=1&enablejsapi=1&rel=0&fs=1`;
+    }
+    
+    // Vimeo için kontrol
     if (url.includes('vimeo.com')) {
-      const videoId = url.split('vimeo.com/')[1]?.split('?')[0];
-      return `https://player.vimeo.com/video/${videoId}`;
+      const vimeoId = url.split('vimeo.com/')[1]?.split('?')[0];
+      return `https://player.vimeo.com/video/${vimeoId}`;
     }
+    
     return url;
   };
 
@@ -217,6 +220,13 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
             allowsFullscreenVideo
             javaScriptEnabled
             domStorageEnabled
+            allowsInlineMediaPlayback
+            mediaPlaybackRequiresUserAction={false}
+            injectedJavaScript={`
+              document.getElementsByTagName('video')[0].style.width = '100%';
+              document.getElementsByTagName('video')[0].style.height = '100%';
+              true;
+            `}
           />
         </View>
 

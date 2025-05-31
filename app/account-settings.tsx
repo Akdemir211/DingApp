@@ -6,10 +6,10 @@ import { Input } from '@/components/UI/Input';
 import { Button } from '@/components/UI/Button';
 import { useAuth } from '@/context/AuthContext';
 import { router } from 'expo-router';
-import { ArrowLeft, User, Lock, Mail, Camera } from 'lucide-react-native';
-import { supabase } from '@/lib/supabase';
+import { ArrowLeft, Mail, Lock, User, Camera } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import * as ImagePicker from 'expo-image-picker';
+import { supabase } from '@/lib/supabase';
 
 export default function AccountSettingsScreen() {
   const { user } = useAuth();

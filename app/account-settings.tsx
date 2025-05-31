@@ -84,14 +84,14 @@ export default function AccountSettingsScreen() {
     if (!user) return;
 
     try {
-      // Fetch profile photo
+      // Fetch profile photo using maybeSingle() instead of single()
       const { data: photoData, error: photoError } = await supabase
         .from('profile_photos')
         .select('photo_url')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (photoError && photoError.code !== 'PGRST116') throw photoError;
+      if (photoError) throw photoError;
       
       if (photoData) {
         setAvatarUrl(photoData.photo_url);

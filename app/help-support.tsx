@@ -42,7 +42,7 @@ export default function HelpSupportScreen() {
   };
 
   const handleWebsite = () => {
-    Linking.openURL('https://work-chat.netlify.app/');
+    Linking.openURL('https://roomiks.netlify.app/');
   };
 
   const handlePhone = () => {

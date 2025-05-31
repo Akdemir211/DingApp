@@ -1,25 +1,25 @@
-import React, { useState, useEffect, useRef } from 'react';
+{
+  // Mevcut importları koru ve yeni importu ekle
+  const existingImports = `import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Image, ImageBackground } from 'react-native';
 import { router } from 'expo-router';
 import { Colors, Spacing, FontSizes, BorderRadius } from '@/constants/Theme';
 import { useAuth } from '@/context/AuthContext';
-import { ArrowLeft, Send, X, CreditCard as Edit, Trash, Volume2, VolumeX } from 'lucide-react-native';
+import { ArrowLeft, Send, X, Edit, Trash, Volume2, VolumeX } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import { getGeminiStreamResponse, getGeminiResponse } from '@/lib/gemini';
 import * as AIChatService from '@/lib/aiChatService';
 import { ChatMessage, UserInfo } from '@/lib/aiChatService';
 import { useFocusEffect } from '@react-navigation/native';
-import * as Speech from 'expo-speech';
+import * as Speech from 'expo-speech';`;
 
-export default function AIChatScreen() {
+  // Mevcut kodun başına yeni state ekle
+  const newState = `
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [voiceEnabled, setVoiceEnabled] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { user } = useAuth();
-  const scrollViewRef = useRef<ScrollView>(null);
+  const [voiceEnabled, setVoiceEnabled] = useState(false);`;
 
+  // Yeni fonksiyonları ekle
+  const newFunctions = `
   const stopSpeaking = () => {
     Speech.stop();
     setIsSpeaking(false);
@@ -39,8 +39,10 @@ export default function AIChatScreen() {
       console.error('Speech error:', error);
       setIsSpeaking(false);
     }
-  };
+  };`;
 
+  // Mesaj gönderme fonksiyonunu güncelle
+  const updatedHandleSend = `
   const handleSend = async () => {
     if (!newMessage.trim() || isLoading || !user) return;
 
@@ -93,7 +95,7 @@ export default function AIChatScreen() {
         
         return true;
       } catch (error) {
-        console.error(`Yanıt hatası (deneme ${retryCount + 1}/${maxRetries}):`, error);
+        console.error(\`Yanıt hatası (deneme \${retryCount + 1}/\${maxRetries}):\`, error);
         return false;
       }
     }
@@ -102,7 +104,7 @@ export default function AIChatScreen() {
     
     while (!success && retryCount < maxRetries) {
       retryCount++;
-      console.log(`Tekrar deneniyor (${retryCount}/${maxRetries})...`);
+      console.log(\`Tekrar deneniyor (\${retryCount}/\${maxRetries})...\`);
       await new Promise((resolve) => setTimeout(resolve, 1000));
       success = await attemptGetResponse();
     }
@@ -119,116 +121,39 @@ export default function AIChatScreen() {
     }
     
     setIsLoading(false);
-  };
+  };`;
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={24} color={Colors.text.primary} />
-        </TouchableOpacity>
-        <View style={styles.headerInfo}>
-          <Text style={styles.title}>AI Koç</Text>
-          <Text style={styles.subtitle}>
-            {userInfo?.name ? `Merhaba, ${userInfo.name}` : 'Size nasıl yardımcı olabilirim?'}
-          </Text>
-        </View>
-        <TouchableOpacity 
-          onPress={() => {
-            if (isSpeaking) {
-              stopSpeaking();
-            }
-            setVoiceEnabled(!voiceEnabled);
-          }} 
-          style={styles.voiceButton}
-        >
-          {voiceEnabled ? (
-            <Volume2 size={20} color={Colors.primary[400]} />
-          ) : (
-            <VolumeX size={20} color={Colors.text.secondary} />
-          )}
-        </TouchableOpacity>
-      </View>
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.messagesContainer}
-        contentContainerStyle={styles.messagesContent}
-        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
-      >
-        <FloatingBubbleBackground />
-        {messages.map((message) => (
-          <View
-            key={message.id}
-            style={[
-              styles.messageContainer,
-              message.role === 'user' ? styles.userMessage : styles.assistantMessage
-            ]}
-          >
-            <Text style={styles.messageText}>{message.content}</Text>
-          </View>
-        ))}
-        {isLoading && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator color={Colors.primary[400]} />
-          </View>
-        )}
-      </ScrollView>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-      >
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            value={newMessage}
-            onChangeText={setNewMessage}
-            placeholder="Mesajınızı yazın..."
-            placeholderTextColor={Colors.text.secondary}
-            multiline
-          />
-          <TouchableOpacity
-            onPress={handleSend}
-            style={[
-              styles.sendButton,
-              (!newMessage.trim() || isLoading) && styles.sendButtonDisabled
-            ]}
-            disabled={!newMessage.trim() || isLoading}
-          >
-            <Send size={20} color={Colors.text.primary} />
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
-    </View>
-  );
-}
+  // Header'a ses kontrolü butonu ekle
+  const updatedHeader = `
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <ArrowLeft size={24} color={Colors.text.primary} />
+            </TouchableOpacity>
+            <View style={styles.headerInfo}>
+              <Text style={styles.title}>AI Koç</Text>
+              <Text style={styles.subtitle}>
+                {userInfo?.name ? \`Merhaba, \${userInfo.name}\` : 'Size nasıl yardımcı olabilirim?'}
+              </Text>
+            </View>
+            <TouchableOpacity 
+              onPress={() => {
+                if (isSpeaking) {
+                  stopSpeaking();
+                }
+                setVoiceEnabled(!voiceEnabled);
+              }} 
+              style={styles.voiceButton}
+            >
+              {voiceEnabled ? (
+                <Volume2 size={20} color={Colors.primary[400]} />
+              ) : (
+                <VolumeX size={20} color={Colors.text.secondary} />
+              )}
+            </TouchableOpacity>
+          </View>`;
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: Spacing.md,
-    backgroundColor: Colors.darkGray[900],
-  },
-  backButton: {
-    padding: Spacing.sm,
-  },
-  headerInfo: {
-    flex: 1,
-    marginLeft: Spacing.sm,
-  },
-  title: {
-    fontSize: FontSizes.lg,
-    fontWeight: 'bold',
-    color: Colors.text.primary,
-  },
-  subtitle: {
-    fontSize: FontSizes.sm,
-    color: Colors.text.secondary,
-  },
+  // Yeni stil ekle
+  const newStyles = `
   voiceButton: {
     width: 40,
     height: 40,
@@ -237,60 +162,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: Spacing.md,
-  },
-  messagesContainer: {
-    flex: 1,
-  },
-  messagesContent: {
-    padding: Spacing.md,
-  },
-  messageContainer: {
-    maxWidth: '80%',
-    marginVertical: Spacing.xs,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
-  },
-  userMessage: {
-    alignSelf: 'flex-end',
-    backgroundColor: Colors.primary[400],
-  },
-  assistantMessage: {
-    alignSelf: 'flex-start',
-    backgroundColor: Colors.darkGray[800],
-  },
-  messageText: {
-    color: Colors.text.primary,
-    fontSize: FontSizes.md,
-  },
-  loadingContainer: {
-    padding: Spacing.md,
-    alignItems: 'center',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    padding: Spacing.md,
-    backgroundColor: Colors.darkGray[900],
-  },
-  input: {
-    flex: 1,
-    minHeight: 40,
-    maxHeight: 120,
-    backgroundColor: Colors.darkGray[800],
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    color: Colors.text.primary,
-    fontSize: FontSizes.md,
-  },
-  sendButton: {
-    marginLeft: Spacing.sm,
-    padding: Spacing.sm,
-    borderRadius: BorderRadius.round,
-    backgroundColor: Colors.primary[400],
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sendButtonDisabled: {
-    opacity: 0.5,
-  },
-});
+  },`;
+
+  // Tüm değişiklikleri uygula
+  return `${existingImports}
+
+// ... (mevcut kodun devamı)
+${newState}
+${newFunctions}
+${updatedHandleSend}
+${updatedHeader}
+
+const styles = StyleSheet.create({
+  // ... (mevcut stiller)
+  ${newStyles}
+});`;
+}

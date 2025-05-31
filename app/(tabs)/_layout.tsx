@@ -1,7 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
-import { Colors } from '@/constants/Theme';
 import { Home, MessageSquare, Clock, User, Video } from 'lucide-react-native';
 
 export default function TabLayout() {
@@ -12,8 +11,8 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: Colors.background.darker,
-          borderTopColor: Colors.darkGray[900],
+          backgroundColor: theme.background.darker,
+          borderTopColor: theme.darkGray[900],
           height: 60,
           paddingBottom: 8,
         },

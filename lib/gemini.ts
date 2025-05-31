@@ -1,18 +1,10 @@
 import { GoogleGenAI } from '@google/genai';
 
-// API anahtarınız, gerçek bir projeye geçerken bu anahtarın sunucu tarafında saklanması gerekir
 const GEMINI_API_KEY = "AIzaSyCtIjEMiExQNuInQVMkKmlX0m8HbId3Vrs";
-
-// GoogleGenAI istemcisini başlat
 export const geminiAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-
-// Gemini modeli (2.0 Flash - daha hızlı ve daha uygun maliyetli)
 const MODEL_NAME = 'gemini-2.0-flash-001';
-
-// Hata ayıklama modu aktif mi?
 const DEBUG = true;
 
-// Güvenli konsol log
 function safeLog(message: string, data?: any) {
   if (DEBUG) {
     try {
@@ -27,42 +19,65 @@ function safeLog(message: string, data?: any) {
   }
 }
 
-/**
- * Gemini AI'dan metin yanıtı al
- * @param prompt - Kullanıcı sorusu
- * @param chatHistory - Sohbet geçmişi
- * @param userInfo - Kullanıcı bilgileri
- * @returns Gemini'den gelen yanıt
- */
+// Kullanıcı bilgilerini formatlayan yardımcı fonksiyon
+function formatUserContext(userInfo?: any) {
+  if (!userInfo) return '';
+
+  let context = '\nKullanıcı Bilgileri:\n';
+  
+  if (userInfo.name) context += `- İsim: ${userInfo.name}\n`;
+  if (userInfo.grade) context += `- Sınıf: ${userInfo.grade}\n`;
+  if (userInfo.targetProfession) context += `- Hedef Meslek: ${userInfo.targetProfession}\n`;
+  if (userInfo.examScore) context += `- Sınav Puanı: ${userInfo.examScore}\n`;
+  if (userInfo.strongSubjects?.length) context += `- Güçlü Dersler: ${userInfo.strongSubjects.join(', ')}\n`;
+  if (userInfo.weakSubjects?.length) context += `- Geliştirilmesi Gereken Dersler: ${userInfo.weakSubjects.join(', ')}\n`;
+
+  return context;
+}
+
+// Sohbet geçmişini formatlayan yardımcı fonksiyon
+function formatChatHistory(history: { role: string; content: string }[]) {
+  if (!history.length) return '';
+
+  let formattedHistory = '\nÖnceki Konuşma:\n';
+  // Son 5 mesajı al
+  const recentHistory = history.slice(-5);
+  
+  recentHistory.forEach(msg => {
+    formattedHistory += `${msg.role === 'user' ? 'Öğrenci' : 'Koç'}: ${msg.content}\n`;
+  });
+
+  return formattedHistory;
+}
+
 export async function getGeminiResponse(
   prompt: string,
   chatHistory: { role: 'user' | 'assistant'; content: string }[] = [],
   userInfo?: any
 ) {
   try {
-    safeLog("Gemini normal yanıt isteminde bulunuluyor");
+    safeLog("Gemini yanıt isteniyor");
     
-    // Chat geçmişini Gemini formatına dönüştür
-    const contents = chatHistory.map(message => ({
-      role: message.role,
-      parts: [{ text: message.content }]
-    }));
+    // Sistem talimatları
+    const systemPrompt = `Sen bir eğitim koçusun. Adın AI Koç.
+${formatUserContext(userInfo)}
+${formatChatHistory(chatHistory)}
 
-    // Kullanıcının yeni mesajını ekle
-    contents.push({
-      role: 'user',
-      parts: [{ text: prompt }]
-    });
+Öğrencinin mesajı: ${prompt}
 
-    safeLog("İstek içeriği:", { model: MODEL_NAME, promptLength: prompt.length });
-    
-    // Modelden yanıt al
+Yanıt verirken dikkat edilecekler:
+1. Her zaman Türkçe konuş
+2. Öğrencinin bilgilerini hatırla ve tekrar sorma
+3. Kısa ve öz cevaplar ver
+4. Motivasyonu yüksek tut
+5. Öğrencinin hedeflerine odaklan`;
+
     const result = await geminiAI.models.generateContent({
       model: MODEL_NAME,
-      contents,
+      contents: [{ role: 'user', parts: [{ text: systemPrompt }] }]
     });
 
-    safeLog("Gemini normal yanıt başarılı");
+    safeLog("Gemini yanıt başarılı");
     return result.text;
   } catch (error) {
     safeLog("Gemini API hatası:", error);
@@ -70,170 +85,32 @@ export async function getGeminiResponse(
   }
 }
 
-/**
- * Koçluk içeriği al - basit versiyon (hata sonrası deneme)
- */
-export async function getSimpleCoachResponse(prompt: string) {
-  try {
-    safeLog("Basit koçluk yanıtı istemi");
-    
-    const systemPrompt = `
-Sen bir eğitim koçusun. Öğrencilere ders çalışma konusunda yardımcı oluyorsun.
-Bu mesaja kısa ve özlü bir şekilde yanıt ver: "${prompt}"
-`;
-
-    // Mümkün olan en basit istek
-    const result = await geminiAI.models.generateContent({
-      model: MODEL_NAME,
-      contents: [{ role: 'user', parts: [{ text: systemPrompt }] }]
-    });
-
-    safeLog("Basit koçluk yanıtı başarılı");
-    return result.text;
-  } catch (error) {
-    safeLog("Basit koçluk yanıtı hatası:", error);
-    return "Üzgünüm, şu anda yanıt veremiyorum. Lütfen daha sonra tekrar deneyin.";
-  }
-}
-
-/**
- * Gemini AI'dan gerçek zamanlı yanıt akışı al (ama aslında mobil cihaz uyumluluğu için düz yanıt kullanır)
- * @param prompt - Kullanıcı sorusu  
- * @param chatHistory - Sohbet geçmişi
- * @param userInfo - Kullanıcı bilgileri
- * @returns Düz yanıtı stream olarak kullanılabilecek şekilde döndürür
- */
+// Stream yanıtı için aynı mantığı uygula
 export async function getGeminiStreamResponse(
   prompt: string,
   chatHistory: { role: 'user' | 'assistant'; content: string }[] = [],
   userInfo?: any
 ) {
   try {
-    safeLog("Mobil-uyumlu yanıt istemi başlatılıyor");
+    safeLog("Stream yanıt isteniyor");
     
-    // Eğitim koçu sistem talimatlarını ekle
-    const systemInstructions = createEducationalCoachInstructions(userInfo);
+    const systemPrompt = `Sen bir eğitim koçusun. Adın AI Koç.
+${formatUserContext(userInfo)}
+${formatChatHistory(chatHistory)}
+
+Öğrencinin mesajı: ${prompt}
+
+Yanıt verirken dikkat edilecekler:
+1. Her zaman Türkçe konuş
+2. Öğrencinin bilgilerini hatırla ve tekrar sorma
+3. Kısa ve öz cevaplar ver
+4. Motivasyonu yüksek tut
+5. Öğrencinin hedeflerine odaklan`;
+
+    const response = await getGeminiResponse(systemPrompt, [], userInfo);
     
-    // Düz bir şekilde yanıt al
-    let extendedPrompt = systemInstructions + "\n\n" + prompt;
-    
-    // Sohbet geçmişini ekle (sadece son 2 mesaj - performans için)
-    if (chatHistory.length > 0) {
-      let historyText = "\n\nÖnceki Konuşma:\n";
-      const recentHistory = chatHistory.slice(-2);
-      
-      recentHistory.forEach(msg => {
-        historyText += `${msg.role === 'user' ? 'Kullanıcı' : 'AI Koç'}: ${msg.content.substring(0, 100)}...\n`;
-      });
-      
-      extendedPrompt += historyText;
-    }
-    
-    safeLog("Hazırlanan istek uzunluğu:", { promptLength: extendedPrompt.length });
-    
-    // İstek çok uzunsa sadeleştir
-    if (extendedPrompt.length > 4000) {
-      safeLog("İstek çok uzun, kısaltılıyor");
-      extendedPrompt = systemInstructions.substring(0, 500) + "\n\n" + prompt;
-    }
-    
-    try {
-      // Düz yanıt al
-      safeLog("Standart yanıt isteniyor");
-      const response = await getGeminiResponse(extendedPrompt, [], userInfo);
-      
-      // Daha güvenilir bir stream nesnesi oluştur
-      const asyncIteratable = {
-        text: response,
-        
-        // Symbol.asyncIterator metodunun daha güvenilir bir implementasyonu
-        [Symbol.asyncIterator]: function() {
-          let fulfilled = false;
-          const textData = this.text;
-          
-          return {
-            next: async function() {
-              if (fulfilled) {
-                return { done: true, value: undefined };
-              }
-              
-              fulfilled = true;
-              return { 
-                done: false, 
-                value: { text: textData } 
-              };
-            },
-            
-            // Diğer gerekli metotlar
-            return: async function() {
-              fulfilled = true;
-              return { done: true, value: undefined };
-            },
-            
-            throw: async function(e: Error) {
-              fulfilled = true;
-              throw e;
-            }
-          };
-        }
-      };
-      
-      return asyncIteratable;
-    } catch (mainError) {
-      safeLog("Standart yanıt başarısız oldu, basit yanıt deneniyor", mainError);
-      
-      // İlk yöntem başarısız olursa basit yanıt dene
-      const simpleResponse = await getSimpleCoachResponse(prompt);
-      
-      // Daha güvenilir bir stream nesnesi oluştur
-      const asyncIteratable = {
-        text: simpleResponse,
-        
-        // Symbol.asyncIterator metodunun daha güvenilir bir implementasyonu
-        [Symbol.asyncIterator]: function() {
-          let fulfilled = false;
-          const textData = this.text;
-          
-          return {
-            next: async function() {
-              if (fulfilled) {
-                return { done: true, value: undefined };
-              }
-              
-              fulfilled = true;
-              return { 
-                done: false, 
-                value: { text: textData } 
-              };
-            },
-            
-            // Diğer gerekli metotlar
-            return: async function() {
-              fulfilled = true;
-              return { done: true, value: undefined };
-            },
-            
-            throw: async function(e: Error) {
-              fulfilled = true;
-              throw e;
-            }
-          };
-        }
-      };
-      
-      return asyncIteratable;
-    }
-  } catch (error) {
-    safeLog("Tüm yanıt yöntemleri başarısız:", error);
-    
-    // Varsayılan hata mesajı
-    const fallbackMessage = "Üzgünüm, şu anda bağlantı sorunu yaşıyorum. Lütfen daha sonra tekrar deneyin.";
-    
-    // Daha güvenilir bir stream nesnesi oluştur
-    const asyncIteratable = {
-      text: fallbackMessage,
-      
-      // Symbol.asyncIterator metodunun daha güvenilir bir implementasyonu
+    return {
+      text: response,
       [Symbol.asyncIterator]: function() {
         let fulfilled = false;
         const textData = this.text;
@@ -243,20 +120,13 @@ export async function getGeminiStreamResponse(
             if (fulfilled) {
               return { done: true, value: undefined };
             }
-            
             fulfilled = true;
-            return { 
-              done: false, 
-              value: { text: textData } 
-            };
+            return { done: false, value: { text: textData } };
           },
-          
-          // Diğer gerekli metotlar
           return: async function() {
             fulfilled = true;
             return { done: true, value: undefined };
           },
-          
           throw: async function(e: Error) {
             fulfilled = true;
             throw e;
@@ -264,68 +134,21 @@ export async function getGeminiStreamResponse(
         };
       }
     };
-    
-    return asyncIteratable;
-  }
-}
-
-/**
- * Eğitim koçu için sistem talimatlarını oluştur
- * @param userInfo - Kullanıcı bilgileri
- * @returns Sistem talimatları
- */
-function createEducationalCoachInstructions(userInfo?: any) {
-  // Kullanıcı bilgisi varsa bunu kullan
-  const userContext = userInfo ? 
-    `
-    Kullanıcı Bilgileri:
-    - Adı: ${userInfo.name || 'Bilinmiyor'}
-    - Sınıf: ${userInfo.grade || 'Bilinmiyor'}
-    - Hedef Meslek: ${userInfo.targetProfession || 'Bilinmiyor'}
-    ` : '';
-
-  return `
-Sen bir eğitim koçusun. Adın AI Koç. Tüm öğrencilere derslerinde yardımcı olmak, 
-başarılarını arttırmak için varsin. Disiplinli bir öğretmen gibi davranmalısın.
-
-ROL VE AMAÇ:
-- Öğrencilere başarıya ulaşmalarını sağlamak temel görevindir.
-- Disiplinli, motive edici ve ciddi ol.
-- Öğrencilere ödevler ver ve takip et.
-
-${userContext}
-
-KONUŞMA TARZI:
-- Her zaman Türkçe konuş.
-- Kısa ve öz açıklamalar yap.
-
-Şimdi öğrencinin mesajına yanıt ver:
-  `;
-}
-
-/**
- * Eğitim için özelleştirilmiş Gemini AI yanıtı
- * @param prompt - Kullanıcı sorusu
- * @param chatHistory - Sohbet geçmişi
- * @returns Eğitim odaklı yanıt
- */
-export async function getEducationalResponse(
-  prompt: string,
-  chatHistory: { role: 'user' | 'assistant'; content: string }[] = []
-) {
-  // Eğitim odaklı bir ön komut ekleyelim
-  const educationalPrompt = `
-Sen bir eğitim koçusun. Öğrencilere matematik, fizik, kimya ve diğer konularda yardımcı oluyorsun.
-Cevapların kısa, anlaşılır ve eğitici olmalı. 
-
-Öğrencinin sorusu: ${prompt}
-  `;
-
-  try {
-    safeLog("Eğitim yanıtı isteniyor");
-    return await getGeminiResponse(educationalPrompt, chatHistory);
   } catch (error) {
-    safeLog("Eğitim yanıtı hatası:", error);
-    return 'Üzgünüm, şu anda eğitim içeriği sağlayamıyorum. Lütfen daha sonra tekrar deneyin.';
+    safeLog("Stream yanıt hatası:", error);
+    return {
+      text: "Üzgünüm, şu anda yanıt veremiyorum. Lütfen daha sonra tekrar deneyin.",
+      [Symbol.asyncIterator]: function() {
+        let fulfilled = false;
+        const textData = this.text;
+        return {
+          next: async function() {
+            if (fulfilled) return { done: true, value: undefined };
+            fulfilled = true;
+            return { done: false, value: { text: textData } };
+          }
+        };
+      }
+    };
   }
-} 
+}

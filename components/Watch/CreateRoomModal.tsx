@@ -121,7 +121,6 @@ export const CreateWatchRoomModal: React.FC<CreateWatchRoomModalProps> = ({
           />
 
           <Input
-            label="Video URL"
             value={videoUrl}
             onChangeText={setVideoUrl}
             placeholder="İzlenecek videonun linkini girin"

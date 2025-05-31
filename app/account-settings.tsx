@@ -11,6 +11,38 @@ import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
 
+const base64ToBlob = async (uri: string): Promise<{ blob: Blob; ext: string }> => {
+  // Extract content type and base64 data from data URI
+  const match = uri.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) {
+    throw new Error('Invalid data URI format');
+  }
+
+  const [, contentType, base64Data] = match;
+  const ext = contentType.split('/')[1] || 'jpg';
+
+  // Convert base64 to binary
+  const byteCharacters = atob(base64Data);
+  const byteArrays = [];
+
+  for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+    const slice = byteCharacters.slice(offset, offset + 512);
+    const byteNumbers = new Array(slice.length);
+    
+    for (let i = 0; i < slice.length; i++) {
+      byteNumbers[i] = slice.charCodeAt(i);
+    }
+    
+    const byteArray = new Uint8Array(byteNumbers);
+    byteArrays.push(byteArray);
+  }
+
+  return {
+    blob: new Blob(byteArrays, { type: contentType }),
+    ext
+  };
+};
+
 export default function AccountSettingsScreen() {
   const { user } = useAuth();
   const [name, setName] = useState('');
@@ -91,16 +123,31 @@ export default function AccountSettingsScreen() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      let blob: Blob;
+      let fileExt: string;
 
-      const fileExt = uri.split('.').pop();
+      if (uri.startsWith('data:')) {
+        // Handle base64 data URI (web platform)
+        const { blob: b64Blob, ext } = await base64ToBlob(uri);
+        blob = b64Blob;
+        fileExt = ext;
+      } else {
+        // Handle file URI (native platforms)
+        const response = await fetch(uri);
+        blob = await response.blob();
+        fileExt = uri.split('.').pop() || 'jpg';
+      }
+
       const fileName = `${user?.id}-${Math.random()}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, blob);
+        .upload(filePath, blob, {
+          contentType: blob.type,
+          cacheControl: '3600',
+          upsert: false
+        });
 
       if (uploadError) throw uploadError;
 
@@ -118,6 +165,7 @@ export default function AccountSettingsScreen() {
       setAvatarUrl(publicUrl);
       setSuccess('Profil fotoğrafı başarıyla güncellendi');
     } catch (error: any) {
+      console.error('Upload error:', error);
       setError(error.message);
     } finally {
       setLoading(false);

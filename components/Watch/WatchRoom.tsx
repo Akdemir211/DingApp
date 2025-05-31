@@ -22,11 +22,6 @@ interface WatchRoomProps {
   onClose: () => void;
 }
 
-interface VideoState {
-  is_playing: boolean;
-  playback_time: number;
-}
-
 interface Message {
   id: string;
   user_id: string;
@@ -35,36 +30,30 @@ interface Message {
   userName?: string;
 }
 
-interface User {
-  id: string;
-  name: string;
-  avatar_url: string | null;
+interface VideoState {
+  is_playing: boolean;
+  playback_time: number;
 }
 
 const VideoPlayer = ({ 
   videoUrl, 
   isCreator,
   videoState,
-  onPlayPause,
-  webViewRef
+  onStateChange 
 }: { 
   videoUrl: string;
   isCreator: boolean;
   videoState: VideoState;
-  onPlayPause: () => void;
-  webViewRef: React.RefObject<WebView>;
+  onStateChange: (state: VideoState) => void;
 }) => {
   const embedUrl = getEmbedUrl(videoUrl);
+  const webViewRef = useRef<WebView>(null);
   const aspectRatio = Platform.OS === 'web' ? 16/9 : undefined;
 
-  // YouTube Player API'sini enjekte et
+  // YouTube Player API integration
   const injectedJavaScript = `
-    var tag = document.createElement('script');
-    tag.src = "https://www.youtube.com/iframe_api";
-    var firstScriptTag = document.getElementsByTagName('script')[0];
-    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-
-    var player;
+    let player;
+    
     function onYouTubeIframeAPIReady() {
       player = new YT.Player('player', {
         events: {
@@ -76,80 +65,78 @@ const VideoPlayer = ({
     function onPlayerStateChange(event) {
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'stateChange',
-        state: event.data
+        data: {
+          state: event.data,
+          time: player.getCurrentTime()
+        }
       }));
     }
+
+    // Initialize YouTube API
+    var tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    var firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
     true;
   `;
 
+  const handleMessage = (event: any) => {
+    try {
+      const message = JSON.parse(event.nativeEvent.data);
+      if (message.type === 'stateChange' && isCreator) {
+        onStateChange({
+          is_playing: message.data.state === 1,
+          playback_time: message.data.time
+        });
+      }
+    } catch (error) {
+      console.error('Error handling player message:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (webViewRef.current) {
+      const command = videoState.is_playing ? 'playVideo' : 'pauseVideo';
+      webViewRef.current.injectJavaScript(`
+        if (player && player.${command}) {
+          player.${command}();
+          player.seekTo(${videoState.playback_time}, true);
+        }
+        true;
+      `);
+    }
+  }, [videoState]);
+
   if (Platform.OS === 'web') {
     return (
-      <View style={styles.videoContainer}>
-        <iframe
-          id="player"
-          src={embedUrl}
-          style={{
-            width: '100%',
-            height: '100%',
-            border: 'none',
-            aspectRatio,
-          }}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
-        {isCreator && (
-          <TouchableOpacity 
-            style={styles.playPauseButton}
-            onPress={onPlayPause}
-          >
-            {videoState.is_playing ? (
-              <Pause size={24} color={Colors.text.primary} />
-            ) : (
-              <Play size={24} color={Colors.text.primary} />
-            )}
-          </TouchableOpacity>
-        )}
-      </View>
+      <iframe
+        id="player"
+        src={embedUrl}
+        style={{
+          width: '100%',
+          height: '100%',
+          border: 'none',
+          aspectRatio,
+        }}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+      />
     );
   }
 
   return (
-    <View style={styles.videoContainer}>
-      <WebView
-        ref={webViewRef}
-        source={{ uri: embedUrl }}
-        style={styles.webview}
-        allowsFullscreenVideo
-        allowsInlineMediaPlayback
-        mediaPlaybackRequiresUserAction={false}
-        javaScriptEnabled
-        injectedJavaScript={injectedJavaScript}
-        onMessage={(event) => {
-          try {
-            const data = JSON.parse(event.nativeEvent.data);
-            if (data.type === 'stateChange') {
-              // YouTube player states: -1 (unstarted), 0 (ended), 1 (playing), 2 (paused), 3 (buffering), 5 (video cued)
-              console.log('Player state changed:', data.state);
-            }
-          } catch (error) {
-            console.error('Error parsing player message:', error);
-          }
-        }}
-      />
-      {isCreator && (
-        <TouchableOpacity 
-          style={styles.playPauseButton}
-          onPress={onPlayPause}
-        >
-          {videoState.is_playing ? (
-            <Pause size={24} color={Colors.text.primary} />
-          ) : (
-            <Play size={24} color={Colors.text.primary} />
-          )}
-        </TouchableOpacity>
-      )}
-    </View>
+    <WebView
+      ref={webViewRef}
+      source={{ uri: embedUrl }}
+      style={{ flex: 1, backgroundColor: 'transparent' }}
+      allowsFullscreenVideo
+      allowsInlineMediaPlayback
+      mediaPlaybackRequiresUserAction={false}
+      javaScriptEnabled
+      injectedJavaScript={injectedJavaScript}
+      onMessage={handleMessage}
+    />
   );
 };
 
@@ -178,18 +165,15 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [members, setMembers] = useState<User[]>([]);
+  const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [videoState, setVideoState] = useState<VideoState>({
     is_playing: false,
     playback_time: 0
   });
+  const [error, setError] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
-  const webViewRef = useRef<WebView>(null);
-  const [isLandscape, setIsLandscape] = useState(
-    SCREEN_WIDTH > SCREEN_HEIGHT
-  );
-
+  const [isLandscape, setIsLandscape] = useState(SCREEN_WIDTH > SCREEN_HEIGHT);
   const isCreator = user?.id === room.created_by;
 
   useEffect(() => {
@@ -234,20 +218,16 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
     const videoStateSubscription = supabase
       .channel('video_states')
       .on('postgres_changes', {
-        event: '*',
+        event: 'UPDATE',
         schema: 'public',
         table: 'video_states',
         filter: `room_id=eq.${roomId}`
       }, (payload) => {
-        if (payload.new) {
-          setVideoState(payload.new as VideoState);
-          
-          // Video durumunu WebView'da güncelle
-          const js = payload.new.is_playing
-            ? 'player.playVideo()'
-            : 'player.pauseVideo()';
-          
-          webViewRef.current?.injectJavaScript(js);
+        if (payload.new && !isCreator) {
+          setVideoState({
+            is_playing: payload.new.is_playing,
+            playback_time: payload.new.playback_time
+          });
         }
       })
       .subscribe();
@@ -265,46 +245,39 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
         .from('video_states')
         .select('*')
         .eq('room_id', roomId)
-        .maybeSingle(); // Changed from .single() to .maybeSingle()
+        .single();
 
       if (error) throw error;
-      
-      // If no video state exists, create one
-      if (!data) {
-        const { data: newState, error: createError } = await supabase
-          .from('video_states')
-          .insert({
-            room_id: roomId,
-            is_playing: false,
-            playback_time: 0
-          })
-          .select()
-          .single();
-
-        if (createError) throw createError;
-        if (newState) setVideoState(newState);
-      } else {
-        setVideoState(data);
+      if (data) {
+        setVideoState({
+          is_playing: data.is_playing,
+          playback_time: data.playback_time
+        });
       }
     } catch (error) {
       console.error('Error fetching video state:', error);
+      setError('Video durumu alınamadı');
     }
   };
 
-  const handlePlayPause = async () => {
+  const updateVideoState = async (newState: VideoState) => {
     if (!isCreator) return;
 
     try {
-      const newState = !videoState.is_playing;
-      
       const { error } = await supabase
         .from('video_states')
-        .update({ is_playing: newState })
+        .update({
+          is_playing: newState.is_playing,
+          playback_time: newState.playback_time,
+          updated_at: new Date().toISOString()
+        })
         .eq('room_id', roomId);
 
       if (error) throw error;
+      setVideoState(newState);
     } catch (error) {
       console.error('Error updating video state:', error);
+      setError('Video durumu güncellenemedi');
     }
   };
 
@@ -340,6 +313,7 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
       }
     } catch (error) {
       console.error('Error fetching messages:', error);
+      setError('Mesajlar alınamadı');
     }
   };
 
@@ -365,6 +339,7 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
       }
     } catch (error) {
       console.error('Error fetching members:', error);
+      setError('Üyeler alınamadı');
     }
   };
 
@@ -391,6 +366,7 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
+      setError('Mesaj gönderilemedi');
     } finally {
       setLoading(false);
     }
@@ -402,17 +378,6 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
       minute: '2-digit' 
     });
   };
-
-  if (!room) {
-    return (
-      <View style={styles.container}>
-        <FloatingBubbleBackground />
-        <View style={styles.content}>
-          <Text style={styles.loadingText}>Yükleniyor...</Text>
-        </View>
-      </View>
-    );
-  }
 
   const getContentStyles = () => {
     if (Platform.OS === 'web') {
@@ -450,16 +415,30 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
             <Text style={styles.statsText}>{members.length} üye</Text>
           </View>
         </View>
+        {isCreator && (
+          <TouchableOpacity
+            style={styles.playButton}
+            onPress={() => updateVideoState({
+              ...videoState,
+              is_playing: !videoState.is_playing
+            })}
+          >
+            {videoState.is_playing ? (
+              <Pause size={24} color={Colors.text.primary} />
+            ) : (
+              <Play size={24} color={Colors.text.primary} />
+            )}
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={getContentStyles()}>
         <View style={getVideoSectionStyles()}>
-          <VideoPlayer 
-            videoUrl={room.video_url} 
+          <VideoPlayer
+            videoUrl={room.video_url}
             isCreator={isCreator}
             videoState={videoState}
-            onPlayPause={handlePlayPause}
-            webViewRef={webViewRef}
+            onStateChange={updateVideoState}
           />
         </View>
 
@@ -496,6 +475,12 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
                 </View>
               );
             })}
+            
+            {error && (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            )}
           </ScrollView>
 
           <KeyboardAvoidingView
@@ -568,6 +553,15 @@ const styles = StyleSheet.create({
     color: Colors.text.secondary,
     marginLeft: 4,
   },
+  playButton: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.round,
+    backgroundColor: Colors.primary[500],
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: Spacing.md,
+  },
   content: {
     flex: 1,
     flexDirection: 'column',
@@ -579,25 +573,6 @@ const styles = StyleSheet.create({
   webContent: {
     flex: 1,
     flexDirection: 'row',
-  },
-  videoContainer: {
-    flex: 1,
-    position: 'relative',
-  },
-  webview: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  playPauseButton: {
-    position: 'absolute',
-    bottom: Spacing.md,
-    right: Spacing.md,
-    width: 40,
-    height: 40,
-    borderRadius: BorderRadius.round,
-    backgroundColor: Colors.primary[500],
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   videoSection: {
     height: SCREEN_WIDTH * (9/16),
@@ -720,10 +695,16 @@ const styles = StyleSheet.create({
   sendButtonDisabled: {
     opacity: 0.5,
   },
-  loadingText: {
+  errorContainer: {
+    padding: Spacing.md,
+    backgroundColor: Colors.darkGray[800],
+    borderRadius: BorderRadius.md,
+    marginVertical: Spacing.sm,
+  },
+  errorText: {
     fontFamily: 'Inter-Regular',
-    fontSize: FontSizes.lg,
-    color: Colors.text.secondary,
+    fontSize: FontSizes.sm,
+    color: Colors.error,
     textAlign: 'center',
   },
 });

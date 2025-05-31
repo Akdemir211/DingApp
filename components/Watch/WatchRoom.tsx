@@ -34,6 +34,62 @@ interface User {
   avatar_url: string | null;
 }
 
+const VideoPlayer = ({ videoUrl }: { videoUrl: string }) => {
+  const embedUrl = getEmbedUrl(videoUrl);
+
+  if (Platform.OS === 'web') {
+    return (
+      <iframe
+        src={embedUrl}
+        style={{
+          width: '100%',
+          height: '100%',
+          border: 'none',
+        }}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+      />
+    );
+  }
+
+  return (
+    <WebView
+      source={{ uri: embedUrl }}
+      style={{ flex: 1 }}
+      allowsFullscreenVideo
+      allowsInlineMediaPlayback
+      mediaPlaybackRequiresUserAction={false}
+      javaScriptEnabled
+      domStorageEnabled
+    />
+  );
+};
+
+// URL'yi embed formatına dönüştür
+const getEmbedUrl = (url: string) => {
+  // YouTube video ID'sini çıkar
+  let videoId = '';
+  
+  if (url.includes('youtube.com/watch?v=')) {
+    videoId = url.split('watch?v=')[1]?.split('&')[0] || '';
+  } else if (url.includes('youtu.be/')) {
+    videoId = url.split('youtu.be/')[1]?.split('?')[0] || '';
+  }
+  
+  if (videoId) {
+    // YouTube Embed URL'sini oluştur ve gerekli parametreleri ekle
+    return `https://www.youtube.com/embed/${videoId}?playsinline=1&modestbranding=1&enablejsapi=1&rel=0&fs=1`;
+  }
+  
+  // Vimeo için kontrol
+  if (url.includes('vimeo.com')) {
+    const vimeoId = url.split('vimeo.com/')[1]?.split('?')[0];
+    return `https://player.vimeo.com/video/${vimeoId}?playsinline=1`;
+  }
+  
+  return url;
+};
+
 export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -171,30 +227,6 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
     });
   };
 
-  const getEmbedUrl = (url: string) => {
-    // YouTube video ID'sini çıkar
-    let videoId = '';
-    
-    if (url.includes('youtube.com/watch?v=')) {
-      videoId = url.split('watch?v=')[1]?.split('&')[0] || '';
-    } else if (url.includes('youtu.be/')) {
-      videoId = url.split('youtu.be/')[1]?.split('?')[0] || '';
-    }
-    
-    if (videoId) {
-      // YouTube Embed URL'sini oluştur ve gerekli parametreleri ekle
-      return `https://www.youtube.com/embed/${videoId}?playsinline=1&modestbranding=1&enablejsapi=1&rel=0&fs=1`;
-    }
-    
-    // Vimeo için kontrol
-    if (url.includes('vimeo.com')) {
-      const vimeoId = url.split('vimeo.com/')[1]?.split('?')[0];
-      return `https://player.vimeo.com/video/${vimeoId}`;
-    }
-    
-    return url;
-  };
-
   return (
     <View style={styles.container}>
       <FloatingBubbleBackground />
@@ -214,20 +246,7 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
 
       <View style={styles.content}>
         <View style={styles.videoSection}>
-          <WebView
-            style={styles.video}
-            source={{ uri: getEmbedUrl(room.video_url) }}
-            allowsFullscreenVideo
-            javaScriptEnabled
-            domStorageEnabled
-            allowsInlineMediaPlayback
-            mediaPlaybackRequiresUserAction={false}
-            injectedJavaScript={`
-              document.getElementsByTagName('video')[0].style.width = '100%';
-              document.getElementsByTagName('video')[0].style.height = '100%';
-              true;
-            `}
-          />
+          <VideoPlayer videoUrl={room.video_url} />
         </View>
 
         <View style={styles.chatSection}>
@@ -334,22 +353,24 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    flexDirection: 'column',
+    flexDirection: Platform.OS === 'web' ? 'row' : 'column',
   },
   videoSection: {
-    height: '40%',
+    ...(Platform.OS === 'web' ? {
+      flex: 2,
+      margin: Spacing.md,
+    } : {
+      height: '40%',
+      margin: Spacing.md,
+    }),
     backgroundColor: Colors.background.darker,
     borderRadius: BorderRadius.md,
-    margin: Spacing.md,
     overflow: 'hidden',
-  },
-  video: {
-    flex: 1,
   },
   chatSection: {
     flex: 1,
     margin: Spacing.md,
-    marginTop: 0,
+    marginTop: Platform.OS === 'web' ? Spacing.md : 0,
     backgroundColor: Colors.background.card,
     borderRadius: BorderRadius.md,
     overflow: 'hidden',

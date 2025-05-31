@@ -31,6 +31,13 @@ export interface ChatMessage {
   timestamp: Date;
 }
 
+// İlk selamlama mesajı
+const GREETING_MESSAGE = {
+  role: 'assistant' as const,
+  content: 'Merhaba! Ben senin yapay zeka destekli eğitim koçunum. Ders çalışma, sınavlara hazırlanma veya herhangi bir konuda sana yardımcı olabilirim. Seni daha iyi tanıyabilir miyim?',
+  timestamp: new Date()
+};
+
 /**
  * Kullanıcı bilgilerini getir
  */
@@ -170,7 +177,30 @@ export async function getChatHistory(
     
     if (error) throw error;
     
-    return (data || []).map(message => ({
+    if (!data || data.length === 0) {
+      // Sohbet geçmişi boşsa selamlama mesajı ekle
+      const { data: greetingData, error: greetingError } = await supabase
+        .from('ai_chat_history')
+        .insert({
+          user_id: userId,
+          role: GREETING_MESSAGE.role,
+          content: GREETING_MESSAGE.content,
+          created_at: GREETING_MESSAGE.timestamp.toISOString()
+        })
+        .select()
+        .single();
+
+      if (greetingError) throw greetingError;
+      
+      return [{
+        id: greetingData.id,
+        role: greetingData.role as 'user' | 'assistant',
+        content: greetingData.content,
+        timestamp: new Date(greetingData.created_at)
+      }];
+    }
+    
+    return data.map(message => ({
       id: message.id,
       role: message.role as 'user' | 'assistant',
       content: message.content,
@@ -214,23 +244,26 @@ export async function addChatMessage(
  */
 export async function clearChatHistory(userId: string): Promise<boolean> {
   try {
-    // Selamlama mesajı dışındaki tüm mesajları sil
-    const { error } = await supabase
+    // Tüm mesajları sil
+    const { error: deleteError } = await supabase
       .from('ai_chat_history')
       .delete()
-      .eq('user_id', userId)
-      .neq('role', 'greeting');
+      .eq('user_id', userId);
 
-    if (error) throw error;
+    if (deleteError) throw deleteError;
     
     // Yeni selamlama mesajı ekle
-    const greetingMessage: Omit<ChatMessage, 'id'> = {
-      role: 'assistant',
-      content: 'Merhaba! Ben senin yapay zeka destekli eğitim koçunum. Ders çalışma, sınavlara hazırlanma veya herhangi bir konuda sana yardımcı olabilirim. Seni daha iyi tanıyabilir miyim?',
-      timestamp: new Date()
-    };
+    const { error: greetingError } = await supabase
+      .from('ai_chat_history')
+      .insert({
+        user_id: userId,
+        role: GREETING_MESSAGE.role,
+        content: GREETING_MESSAGE.content,
+        created_at: GREETING_MESSAGE.timestamp.toISOString()
+      });
 
-    await addChatMessage(userId, greetingMessage);
+    if (greetingError) throw greetingError;
+    
     return true;
   } catch (error) {
     console.error('Sohbet geçmişi temizleme hatası:', error);

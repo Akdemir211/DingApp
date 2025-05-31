@@ -28,12 +28,10 @@ const GREETING_MESSAGE: Omit<ChatMessage, 'id'> = {
   timestamp: new Date()
 };
 
+// ... (diğer kodlar aynı kalacak)
+
 export default function AIChatScreen() {
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const { user } = useAuth();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const dot1Scale = useSharedValue(1);
+  // ... (diğer state ve ref tanımlamaları aynı kalacak)
 
   // Sohbet geçmişini temizle
   const handleClearChat = async () => {
@@ -101,40 +99,7 @@ export default function AIChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.dark,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: Spacing.md,
-    backgroundColor: Colors.background.card,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.darkGray[800],
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: BorderRadius.round,
-    backgroundColor: Colors.darkGray[800],
-    justifyContent: 'center',
-    alignItems: 'center',
-    opacity: 0.8,
-  },
-  headerInfo: {
-    flex: 1,
-    marginLeft: Spacing.md,
-  },
-  title: {
-    fontSize: FontSizes.lg,
-    fontWeight: 'bold',
-    color: Colors.text.primary,
-  },
-  subtitle: {
-    fontSize: FontSizes.sm,
-    color: Colors.text.secondary,
-  },
+  // ... (diğer stiller aynı kalacak)
   clearButton: {
     width: 40,
     height: 40,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
 import { Colors, Spacing, FontSizes, BorderRadius } from '@/constants/Theme';
 import { Card } from '@/components/UI/Card';
 import { Button } from '@/components/UI/Button';
@@ -28,7 +28,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [room, setRoom] = useState<Room | null>(null);
   const [memberCount, setMemberCount] = useState(0);
-  const [users, setUsers] = useState<{[key: string]: {name: string}}>({});
+  const [users, setUsers] = useState<{[key: string]: {name: string, photoUrl: string | null}}>({}); 
   const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -37,18 +37,32 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
     loadUsers();
     subscribeToMessages();
     subscribeToMembers();
+    subscribeToPhotos();
   }, [roomId]);
 
   const loadUsers = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch user profiles
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id, name');
       
-      if (error) throw error;
+      if (userError) throw userError;
 
-      const userMap = (data || []).reduce((acc: {[key: string]: {name: string}}, user) => {
-        acc[user.id] = { name: user.name || 'Anonim Kullanıcı' };
+      // Fetch profile photos
+      const { data: photoData, error: photoError } = await supabase
+        .from('profile_photos')
+        .select('user_id, photo_url');
+
+      if (photoError) throw photoError;
+
+      // Create user map with photos
+      const userMap = (userData || []).reduce((acc: any, user) => {
+        const photo = photoData?.find(p => p.user_id === user.id);
+        acc[user.id] = { 
+          name: user.name || 'Anonim Kullanıcı',
+          photoUrl: photo?.photo_url || null
+        };
         return acc;
       }, {});
 
@@ -56,6 +70,23 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
     } catch (error) {
       console.error('Error loading users:', error);
     }
+  };
+
+  const subscribeToPhotos = () => {
+    const subscription = supabase
+      .channel('profile_photos_changes')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'profile_photos'
+      }, () => {
+        loadUsers();
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   };
 
   const loadRoomDetails = async () => {
@@ -188,6 +219,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
           {messages.map((message, index) => {
             const isOwnMessage = message.user_id === user?.id;
             const showAvatar = !isOwnMessage && (!messages[index - 1] || messages[index - 1].user_id !== message.user_id);
+            const userInfo = users[message.user_id];
             
             return (
               <View
@@ -197,12 +229,21 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
                   isOwnMessage ? styles.ownMessageWrapper : null
                 ]}
               >
+                {!isOwnMessage && showAvatar && (
+                  <Image 
+                    source={{ 
+                      uri: userInfo?.photoUrl || 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1' 
+                    }}
+                    style={styles.avatar}
+                  />
+                )}
                 <View style={[
                   styles.messageContainer,
-                  isOwnMessage ? styles.ownMessage : styles.otherMessage
+                  isOwnMessage ? styles.ownMessage : styles.otherMessage,
+                  !isOwnMessage && !showAvatar && styles.continuedMessage
                 ]}>
                   {!isOwnMessage && showAvatar && (
-                    <Text style={styles.messageSender}>{users[message.user_id]?.name || 'Anonim Kullanıcı'}</Text>
+                    <Text style={styles.messageSender}>{userInfo?.name}</Text>
                   )}
                   <Text style={styles.messageText}>{message.content}</Text>
                   <Text style={styles.messageTime}>
@@ -291,9 +332,17 @@ const styles = StyleSheet.create({
   messageWrapper: {
     marginVertical: Spacing.xs,
     maxWidth: '80%',
+    flexDirection: 'row',
+    alignItems: 'flex-end',
   },
   ownMessageWrapper: {
     alignSelf: 'flex-end',
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: Spacing.xs,
   },
   messageContainer: {
     padding: Spacing.sm,
@@ -307,6 +356,9 @@ const styles = StyleSheet.create({
   otherMessage: {
     backgroundColor: Colors.darkGray[700],
     borderTopLeftRadius: BorderRadius.xs,
+  },
+  continuedMessage: {
+    marginLeft: 40, // Avatar width + margin
   },
   messageSender: {
     fontFamily: 'Inter-Medium',

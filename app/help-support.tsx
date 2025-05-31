@@ -84,7 +84,7 @@ export default function HelpSupportScreen() {
             <ContactItem
               icon={<Globe size={24} color={Colors.primary[400]} />}
               title="Website"
-              value="https://work-chat.netlify.app/"
+              value="https://roomiks.netlify.app/"
               onPress={handleWebsite}
             />
 

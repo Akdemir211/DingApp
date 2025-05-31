@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Colors, Spacing, FontSizes, BorderRadius } from '@/constants/Theme';
 import { useAuth } from '@/context/AuthContext';
 import { ArrowLeft, Send, Users } from 'lucide-react-native';
@@ -7,10 +7,225 @@ import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import { supabase } from '@/lib/supabase';
 import { WebView } from 'react-native-webview';
 
-// ... (diğer tip tanımlamaları ve yardımcı fonksiyonlar aynı kalacak)
+interface WatchRoomProps {
+  roomId: string;
+  room: {
+    id: string;
+    name: string;
+    description: string;
+    video_url: string;
+    is_private: boolean;
+    created_by: string;
+  };
+  onClose: () => void;
+}
+
+interface Message {
+  id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  userName?: string;
+}
+
+interface User {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+}
+
+const VideoPlayer = ({ videoUrl }: { videoUrl: string }) => {
+  const embedUrl = getEmbedUrl(videoUrl);
+
+  if (Platform.OS === 'web') {
+    return (
+      <iframe
+        src={embedUrl}
+        style={{
+          width: '100%',
+          height: '100%',
+          border: 'none',
+        }}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+      />
+    );
+  }
+
+  return (
+    <WebView
+      source={{ uri: embedUrl }}
+      style={{ flex: 1 }}
+      allowsFullscreenVideo
+      allowsInlineMediaPlayback
+      mediaPlaybackRequiresUserAction={false}
+      javaScriptEnabled
+      domStorageEnabled
+    />
+  );
+};
+
+// URL'yi embed formatına dönüştür
+const getEmbedUrl = (url: string) => {
+  // YouTube video ID'sini çıkar
+  let videoId = '';
+  
+  if (url.includes('youtube.com/watch?v=')) {
+    videoId = url.split('watch?v=')[1]?.split('&')[0] || '';
+  } else if (url.includes('youtu.be/')) {
+    videoId = url.split('youtu.be/')[1]?.split('?')[0] || '';
+  }
+  
+  if (videoId) {
+    // YouTube Embed URL'sini oluştur ve gerekli parametreleri ekle
+    return `https://www.youtube.com/embed/${videoId}?playsinline=1&modestbranding=1&enablejsapi=1&rel=0&fs=1`;
+  }
+  
+  // Vimeo için kontrol
+  if (url.includes('vimeo.com')) {
+    const vimeoId = url.split('vimeo.com/')[1]?.split('?')[0];
+    return `https://player.vimeo.com/video/${vimeoId}?playsinline=1`;
+  }
+  
+  return url;
+};
 
 export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) => {
-  // ... (state ve diğer fonksiyonlar aynı kalacak)
+  const { user } = useAuth();
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [members, setMembers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    fetchMessages();
+    fetchMembers();
+    
+    const messagesSubscription = supabase
+      .channel('watch_room_messages')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'watch_room_messages',
+        filter: `room_id=eq.${roomId}`
+      }, () => {
+        fetchMessages();
+      })
+      .subscribe();
+
+    const membersSubscription = supabase
+      .channel('watch_room_members')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'watch_room_members',
+        filter: `room_id=eq.${roomId}`
+      }, () => {
+        fetchMembers();
+      })
+      .subscribe();
+
+    return () => {
+      messagesSubscription.unsubscribe();
+      membersSubscription.unsubscribe();
+    };
+  }, [roomId]);
+
+  const fetchMessages = async () => {
+    try {
+      const { data: messagesData, error: messagesError } = await supabase
+        .from('watch_room_messages')
+        .select('*')
+        .eq('room_id', roomId)
+        .order('created_at', { ascending: true });
+
+      if (messagesError) throw messagesError;
+
+      if (messagesData) {
+        const userIds = [...new Set(messagesData.map(msg => msg.user_id))];
+
+        const { data: usersData, error: usersError } = await supabase
+          .from('users')
+          .select('id, name')
+          .in('id', userIds);
+
+        if (usersError) throw usersError;
+
+        const userMap = new Map(usersData?.map(user => [user.id, user.name]) || []);
+
+        const messagesWithUserNames = messagesData.map(message => ({
+          ...message,
+          userName: userMap.get(message.user_id) || 'Anonim Kullanıcı'
+        }));
+
+        setMessages(messagesWithUserNames);
+        setTimeout(() => scrollToBottom(), 100);
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+  };
+
+  const fetchMembers = async () => {
+    try {
+      const { data: memberData, error: memberError } = await supabase
+        .from('watch_room_members')
+        .select('user_id')
+        .eq('room_id', roomId);
+
+      if (memberError) throw memberError;
+
+      if (memberData) {
+        const userIds = memberData.map(member => member.user_id);
+
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('id, name, avatar_url')
+          .in('id', userIds);
+
+        if (userError) throw userError;
+        setMembers(userData || []);
+      }
+    } catch (error) {
+      console.error('Error fetching members:', error);
+    }
+  };
+
+  const scrollToBottom = () => {
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollToEnd({ animated: true });
+    }
+  };
+
+  const handleSend = async () => {
+    if (!newMessage.trim() || loading) return;
+
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('watch_room_messages')
+        .insert({
+          room_id: roomId,
+          user_id: user?.id,
+          content: newMessage.trim()
+        });
+
+      if (error) throw error;
+      setNewMessage('');
+    } catch (error) {
+      console.error('Error sending message:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTime = (timestamp: string) => {
+    return new Date(timestamp).toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  };
 
   return (
     <View style={styles.container}>
@@ -138,19 +353,24 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    flexDirection: 'column',
+    flexDirection: Platform.OS === 'web' ? 'row' : 'column',
   },
   videoSection: {
-    height: '40%',
+    ...(Platform.OS === 'web' ? {
+      flex: 2,
+      margin: Spacing.md,
+    } : {
+      height: '40%',
+      margin: Spacing.md,
+    }),
     backgroundColor: Colors.background.darker,
     borderRadius: BorderRadius.md,
     overflow: 'hidden',
-    margin: Spacing.md,
   },
   chatSection: {
     flex: 1,
     margin: Spacing.md,
-    marginTop: 0,
+    marginTop: Platform.OS === 'web' ? Spacing.md : 0,
     backgroundColor: Colors.background.card,
     borderRadius: BorderRadius.md,
     overflow: 'hidden',

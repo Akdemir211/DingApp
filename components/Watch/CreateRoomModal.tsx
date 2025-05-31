@@ -59,12 +59,15 @@ export const CreateWatchRoomModal: React.FC<CreateWatchRoomModalProps> = ({
 
       if (roomError) throw roomError;
 
-      // Odayı oluşturan kişiyi otomatik olarak üye yap
+      // Odayı oluşturan kişiyi otomatik olarak üye yap - upsert kullanarak
       const { error: memberError } = await supabase
         .from('watch_room_members')
-        .insert({
+        .upsert({
           room_id: room.id,
-          user_id: user.id
+          user_id: user.id,
+          joined_at: new Date().toISOString()
+        }, {
+          onConflict: 'room_id,user_id'
         });
 
       if (memberError) throw memberError;

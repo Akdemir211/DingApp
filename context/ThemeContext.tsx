@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import * as ThemeConstants from '@/constants/Theme';
+import { Colors } from '@/constants/Theme';
 
 // Define the theme interface
 interface ThemeContextType {
   isDarkMode: boolean;
   toggleTheme: () => void;
-  theme: typeof ThemeConstants.Colors;
+  theme: typeof Colors;
 }
 
 // Create the context with a default value
@@ -21,7 +21,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
   // For now, we'll just use the dark theme as defined in Constants/Theme
   // In the future, we could expand this to include a light theme
-  const theme = ThemeConstants.Colors;
+  const theme = Colors;
 
   return (
     <ThemeContext.Provider value={{ isDarkMode, toggleTheme, theme }}>

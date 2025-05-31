@@ -50,7 +50,6 @@ const VideoPlayer = ({
   const webViewRef = useRef<WebView>(null);
   const aspectRatio = Platform.OS === 'web' ? 16/9 : undefined;
 
-  // YouTube Player API integration
   const injectedJavaScript = `
     let player;
     
@@ -72,7 +71,6 @@ const VideoPlayer = ({
       }));
     }
 
-    // Initialize YouTube API
     var tag = document.createElement('script');
     tag.src = "https://www.youtube.com/iframe_api";
     var firstScriptTag = document.getElementsByTagName('script')[0];
@@ -241,18 +239,30 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
 
   const fetchVideoState = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error: queryError } = await supabase
         .from('video_states')
         .select('*')
         .eq('room_id', roomId)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      if (queryError) throw queryError;
+      
       if (data) {
         setVideoState({
           is_playing: data.is_playing,
           playback_time: data.playback_time
         });
+      } else {
+        // Initialize video state if none exists
+        const { error: insertError } = await supabase
+          .from('video_states')
+          .insert({
+            room_id: roomId,
+            is_playing: false,
+            playback_time: 0
+          });
+          
+        if (insertError) throw insertError;
       }
     } catch (error) {
       console.error('Error fetching video state:', error);
@@ -403,7 +413,6 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
   return (
     <View style={styles.container}>
       <FloatingBubbleBackground />
-      
       <View style={styles.header}>
         <TouchableOpacity onPress={onClose} style={styles.backButton}>
           <ArrowLeft size={24} color={Colors.text.primary} />

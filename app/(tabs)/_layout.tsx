@@ -5,7 +5,8 @@ import { Colors } from '@/constants/Theme';
 import { Home, MessageSquare, Clock, User, Video } from 'lucide-react-native';
 
 export default function TabLayout() {
-  const { theme } = useTheme();
+  const themeContext = useTheme();
+  const theme = themeContext?.theme || Colors;
   
   return (
     <Tabs
@@ -17,8 +18,8 @@ export default function TabLayout() {
           height: 60,
           paddingBottom: 8,
         },
-        tabBarActiveTintColor: theme.primary[500],
-        tabBarInactiveTintColor: theme.text.inactive,
+        tabBarActiveTintColor: theme.primary[500] || Colors.primary[500],
+        tabBarInactiveTintColor: theme.text?.inactive || Colors.text.inactive,
         tabBarLabelStyle: {
           fontFamily: 'Inter-Medium',
           fontSize: 12,

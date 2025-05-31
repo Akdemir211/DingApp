@@ -44,20 +44,20 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="study"
-        options={{
-          title: 'Study',
-          tabBarIcon: ({ color, size }) => (
-            <Clock size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="watch"
         options={{
           title: 'Watch',
           tabBarIcon: ({ color, size }) => (
             <Video size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="study"
+        options={{
+          title: 'Study',
+          tabBarIcon: ({ color, size }) => (
+            <Clock size={size} color={color} />
           ),
         }}
       />

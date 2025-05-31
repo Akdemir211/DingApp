@@ -149,16 +149,13 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
     });
   };
 
-  // Video URL'sini embed formatına dönüştür
   const getEmbedUrl = (url: string) => {
-    // YouTube
     if (url.includes('youtube.com') || url.includes('youtu.be')) {
       const videoId = url.includes('youtube.com') 
         ? url.split('v=')[1]?.split('&')[0]
         : url.split('youtu.be/')[1]?.split('?')[0];
       return `https://www.youtube.com/embed/${videoId}`;
     }
-    // Vimeo
     if (url.includes('vimeo.com')) {
       const videoId = url.split('vimeo.com/')[1]?.split('?')[0];
       return `https://player.vimeo.com/video/${videoId}`;
@@ -184,7 +181,7 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
       </View>
 
       <View style={styles.content}>
-        <View style={styles.videoContainer}>
+        <View style={styles.videoSection}>
           <WebView
             style={styles.video}
             source={{ uri: getEmbedUrl(room.video_url) }}
@@ -194,7 +191,7 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
           />
         </View>
 
-        <View style={styles.chatContainer}>
+        <View style={styles.chatSection}>
           <ScrollView
             ref={scrollViewRef}
             style={styles.messagesContainer}
@@ -298,22 +295,22 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    flexDirection: 'row',
+    flexDirection: 'column',
   },
-  videoContainer: {
-    flex: 2,
+  videoSection: {
+    height: '40%',
     backgroundColor: Colors.background.darker,
     borderRadius: BorderRadius.md,
-    overflow: 'hidden',
     margin: Spacing.md,
+    overflow: 'hidden',
   },
   video: {
     flex: 1,
   },
-  chatContainer: {
+  chatSection: {
     flex: 1,
     margin: Spacing.md,
-    marginLeft: 0,
+    marginTop: 0,
     backgroundColor: Colors.background.card,
     borderRadius: BorderRadius.md,
     overflow: 'hidden',

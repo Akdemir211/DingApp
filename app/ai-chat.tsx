@@ -103,15 +103,15 @@ export default function AIChatScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background.primary,
+    backgroundColor: Colors.background.dark,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: Spacing.medium,
-    backgroundColor: Colors.background.secondary,
+    padding: Spacing.md,
+    backgroundColor: Colors.background.card,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border.primary,
+    borderBottomColor: Colors.darkGray[800],
   },
   backButton: {
     width: 40,
@@ -124,15 +124,15 @@ const styles = StyleSheet.create({
   },
   headerInfo: {
     flex: 1,
-    marginLeft: Spacing.medium,
+    marginLeft: Spacing.md,
   },
   title: {
-    fontSize: FontSizes.large,
+    fontSize: FontSizes.lg,
     fontWeight: 'bold',
     color: Colors.text.primary,
   },
   subtitle: {
-    fontSize: FontSizes.small,
+    fontSize: FontSizes.sm,
     color: Colors.text.secondary,
   },
   clearButton: {

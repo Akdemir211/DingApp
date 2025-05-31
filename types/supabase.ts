@@ -205,6 +205,9 @@ export interface Database {
           room_id: string
           user_id: string
           joined_at: string
+          user?: {
+            name: string | null
+          }
         }
         Insert: {
           room_id: string

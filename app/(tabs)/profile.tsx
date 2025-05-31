@@ -108,6 +108,7 @@ export default function ProfileScreen() {
   const [totalStudyTime, setTotalStudyTime] = useState(0);
   const [messageCount, setMessageCount] = useState(0);
   const [userData, setUserData] = useState<any>(null);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUserStats();
@@ -148,12 +149,42 @@ export default function ProfileScreen() {
       })
       .subscribe();
 
+    const photoSubscription = supabase
+      .channel('photo_updates')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'profile_photos',
+        filter: `user_id=eq.${user?.id}`
+      }, () => {
+        fetchProfilePhoto();
+      })
+      .subscribe();
+
     return () => {
       userSubscription.unsubscribe();
       studySubscription.unsubscribe();
       messageSubscription.unsubscribe();
+      photoSubscription.unsubscribe();
     };
   }, [user?.id]);
+
+  const fetchProfilePhoto = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('profile_photos')
+        .select('photo_url')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      setProfilePhotoUrl(data?.photo_url || null);
+    } catch (error) {
+      console.error('Error fetching profile photo:', error);
+    }
+  };
 
   const fetchUserStats = async () => {
     if (!user) return;
@@ -166,6 +197,9 @@ export default function ProfileScreen() {
         .single();
 
       setUserData(userProfile);
+
+      // Fetch profile photo
+      await fetchProfilePhoto();
 
       const { data: studyData } = await supabase
         .from('study_leaderboard')
@@ -219,7 +253,9 @@ export default function ProfileScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.profileSection}>
             <Image 
-              source={{ uri: userData?.avatar_url || 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1' }} 
+              source={{ 
+                uri: profilePhotoUrl || 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1' 
+              }} 
               style={styles.profileImage}
             />
             <View style={styles.nameContainer}>

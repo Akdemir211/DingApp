@@ -49,19 +49,34 @@ const VideoPlayer = ({
   const embedUrl = getEmbedUrl(videoUrl);
   const webViewRef = useRef<WebView>(null);
   const aspectRatio = Platform.OS === 'web' ? 16/9 : undefined;
+  const lastUpdateTime = useRef(0);
+  const updateThreshold = 1000; // 1 saniye
 
   const injectedJavaScript = `
     let player;
+    let lastUpdateTime = 0;
+    const updateThreshold = 1000; // 1 saniye
     
     function onYouTubeIframeAPIReady() {
       player = new YT.Player('player', {
         events: {
-          'onStateChange': onPlayerStateChange
+          'onStateChange': onPlayerStateChange,
+          'onReady': onPlayerReady
         }
       });
     }
 
+    function onPlayerReady(event) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'ready'
+      }));
+    }
+
     function onPlayerStateChange(event) {
+      const currentTime = Date.now();
+      if (currentTime - lastUpdateTime < updateThreshold) return;
+      
+      lastUpdateTime = currentTime;
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'stateChange',
         data: {
@@ -71,10 +86,27 @@ const VideoPlayer = ({
       }));
     }
 
+    // YouTube API'sini yükle
     var tag = document.createElement('script');
     tag.src = "https://www.youtube.com/iframe_api";
     var firstScriptTag = document.getElementsByTagName('script')[0];
     firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+    // Periyodik zaman güncellemesi
+    setInterval(() => {
+      if (player && player.getPlayerState && player.getPlayerState() === 1) {
+        const currentTime = Date.now();
+        if (currentTime - lastUpdateTime < updateThreshold) return;
+        
+        lastUpdateTime = currentTime;
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'timeUpdate',
+          data: {
+            time: player.getCurrentTime()
+          }
+        }));
+      }
+    }, 1000);
 
     true;
   `;
@@ -82,9 +114,22 @@ const VideoPlayer = ({
   const handleMessage = (event: any) => {
     try {
       const message = JSON.parse(event.nativeEvent.data);
-      if (message.type === 'stateChange' && isCreator) {
+      
+      if (!isCreator) return;
+      
+      const currentTime = Date.now();
+      if (currentTime - lastUpdateTime.current < updateThreshold) return;
+      
+      lastUpdateTime.current = currentTime;
+
+      if (message.type === 'stateChange') {
         onStateChange({
           is_playing: message.data.state === 1,
+          playback_time: message.data.time
+        });
+      } else if (message.type === 'timeUpdate') {
+        onStateChange({
+          ...videoState,
           playback_time: message.data.time
         });
       }
@@ -98,8 +143,14 @@ const VideoPlayer = ({
       const command = videoState.is_playing ? 'playVideo' : 'pauseVideo';
       webViewRef.current.injectJavaScript(`
         if (player && player.${command}) {
+          const currentTime = player.getCurrentTime();
+          const timeDiff = Math.abs(currentTime - ${videoState.playback_time});
+          
+          if (timeDiff > 1) {
+            player.seekTo(${videoState.playback_time}, true);
+          }
+          
           player.${command}();
-          player.seekTo(${videoState.playback_time}, true);
         }
         true;
       `);
@@ -148,7 +199,7 @@ const getEmbedUrl = (url: string) => {
   }
   
   if (videoId) {
-    return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&playsinline=1&modestbranding=1&rel=0&fs=1`;
+    return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&playsinline=1&modestbranding=1&rel=0&fs=1&controls=0`;
   }
   
   if (url.includes('vimeo.com')) {
@@ -252,17 +303,6 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
           is_playing: data.is_playing,
           playback_time: data.playback_time
         });
-      } else {
-        // Initialize video state if none exists
-        const { error: insertError } = await supabase
-          .from('video_states')
-          .insert({
-            room_id: roomId,
-            is_playing: false,
-            playback_time: 0
-          });
-          
-        if (insertError) throw insertError;
       }
     } catch (error) {
       console.error('Error fetching video state:', error);

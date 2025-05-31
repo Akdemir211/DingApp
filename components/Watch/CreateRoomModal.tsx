@@ -113,7 +113,6 @@ export const CreateWatchRoomModal: React.FC<CreateWatchRoomModalProps> = ({
           />
 
           <Input
-            label="Açıklama"
             value={description}
             onChangeText={setDescription}
             placeholder="Oda açıklamasını girin"

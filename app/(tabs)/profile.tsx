@@ -15,7 +15,14 @@ import {
   LogOut, 
   ChevronRight,
   Crown,
-  HelpCircle
+  HelpCircle,
+  Bell,
+  Trophy,
+  Medal,
+  Target,
+  BookOpen,
+  Brain,
+  Clock12
 } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import { supabase } from '@/lib/supabase';
@@ -24,8 +31,41 @@ import Animated, {
   useAnimatedStyle, 
   withSpring,
   withSequence,
-  withDelay
+  withDelay,
+  FadeIn
 } from 'react-native-reanimated';
+
+// Başarım tipleri
+const ACHIEVEMENTS = {
+  STUDY_MASTER: {
+    id: 'study_master',
+    title: 'Çalışma Ustası',
+    description: '10 saat kesintisiz çalışma',
+    icon: Clock12,
+    color: Colors.medal.gold
+  },
+  BRAIN_POWER: {
+    id: 'brain_power',
+    title: 'Beyin Gücü',
+    description: '100 soru çözümü',
+    icon: Brain,
+    color: Colors.medal.silver
+  },
+  BOOKWORM: {
+    id: 'bookworm',
+    title: 'Kitap Kurdu',
+    description: '50 saat toplam çalışma',
+    icon: BookOpen,
+    color: Colors.medal.bronze
+  },
+  FOCUSED: {
+    id: 'focused',
+    title: 'Odaklanmış',
+    description: '5 gün üst üste çalışma',
+    icon: Target,
+    color: Colors.primary[400]
+  }
+};
 
 const ProfileStatCard = ({ 
   icon, 
@@ -49,12 +89,14 @@ const SettingsItem = ({
   icon, 
   title, 
   onPress,
-  showProBadge
+  showProBadge,
+  showNotificationBadge
 }: { 
   icon: React.ReactNode, 
   title: string, 
   onPress: () => void,
-  showProBadge?: boolean
+  showProBadge?: boolean,
+  showNotificationBadge?: boolean
 }) => {
   const [showNotification, setShowNotification] = useState(false);
   const notificationScale = useSharedValue(0);
@@ -80,6 +122,11 @@ const SettingsItem = ({
     <TouchableOpacity style={styles.settingsItem} onPress={handlePress}>
       <View style={styles.settingsItemIcon}>{icon}</View>
       <Text style={styles.settingsItemTitle}>{title}</Text>
+      {showNotificationBadge && (
+        <View style={styles.notificationBadge}>
+          <Text style={styles.notificationBadgeText}>2</Text>
+        </View>
+      )}
       <ChevronRight size={20} color={Colors.text.secondary} />
       
       {showNotification && (
@@ -88,6 +135,36 @@ const SettingsItem = ({
         </Animated.View>
       )}
     </TouchableOpacity>
+  );
+};
+
+const AchievementCard = ({
+  achievement,
+  unlocked
+}: {
+  achievement: typeof ACHIEVEMENTS[keyof typeof ACHIEVEMENTS],
+  unlocked: boolean
+}) => {
+  const Icon = achievement.icon;
+  
+  return (
+    <Animated.View 
+      style={styles.achievementCard}
+      entering={FadeIn.delay(200)}
+    >
+      <View style={[styles.achievementIcon, { backgroundColor: achievement.color }]}>
+        <Icon size={24} color={Colors.text.primary} />
+      </View>
+      <View style={styles.achievementInfo}>
+        <Text style={styles.achievementTitle}>{achievement.title}</Text>
+        <Text style={styles.achievementDescription}>{achievement.description}</Text>
+      </View>
+      {unlocked ? (
+        <Medal size={20} color={achievement.color} />
+      ) : (
+        <Lock size={20} color={Colors.text.secondary} />
+      )}
+    </Animated.View>
   );
 };
 
@@ -109,9 +186,11 @@ export default function ProfileScreen() {
   const [messageCount, setMessageCount] = useState(0);
   const [userData, setUserData] = useState<any>(null);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
+  const [unlockedAchievements, setUnlockedAchievements] = useState<string[]>([]);
 
   useEffect(() => {
     fetchUserStats();
+    checkAchievements();
 
     const userSubscription = supabase
       .channel('user_updates')
@@ -134,6 +213,7 @@ export default function ProfileScreen() {
         filter: `user_id=eq.${user?.id}`
       }, () => {
         fetchUserStats();
+        checkAchievements();
       })
       .subscribe();
 
@@ -220,6 +300,75 @@ export default function ProfileScreen() {
     }
   };
 
+  const checkAchievements = async () => {
+    if (!user) return;
+
+    try {
+      const unlocked = [];
+
+      // Çalışma Ustası kontrolü
+      const { data: longestSession } = await supabase
+        .from('study_sessions')
+        .select('duration')
+        .eq('user_id', user.id)
+        .order('duration', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (longestSession && longestSession.duration >= 600) { // 10 saat
+        unlocked.push(ACHIEVEMENTS.STUDY_MASTER.id);
+      }
+
+      // Kitap Kurdu kontrolü
+      if (totalStudyTime >= 3000) { // 50 saat
+        unlocked.push(ACHIEVEMENTS.BOOKWORM.id);
+      }
+
+      // Beyin Gücü kontrolü
+      const { count: solvedQuestions } = await supabase
+        .from('ai_chat_messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      if (solvedQuestions && solvedQuestions >= 100) {
+        unlocked.push(ACHIEVEMENTS.BRAIN_POWER.id);
+      }
+
+      // Odaklanmış kontrolü
+      const { data: consecutiveDays } = await supabase
+        .from('study_sessions')
+        .select('created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (consecutiveDays) {
+        let streak = 1;
+        let lastDate = new Date(consecutiveDays[0]?.created_at);
+
+        for (let i = 1; i < consecutiveDays.length; i++) {
+          const currentDate = new Date(consecutiveDays[i].created_at);
+          const diffDays = Math.floor((lastDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
+          
+          if (diffDays === 1) {
+            streak++;
+            if (streak >= 5) {
+              unlocked.push(ACHIEVEMENTS.FOCUSED.id);
+              break;
+            }
+          } else if (diffDays > 1) {
+            streak = 1;
+          }
+          
+          lastDate = currentDate;
+        }
+      }
+
+      setUnlockedAchievements(unlocked);
+    } catch (error) {
+      console.error('Error checking achievements:', error);
+    }
+  };
+
   const formatStudyTime = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
     return `${hours}`;
@@ -227,6 +376,10 @@ export default function ProfileScreen() {
 
   const handleAccountSettings = () => {
     router.push('/account-settings');
+  };
+
+  const handleNotificationSettings = () => {
+    router.push('/notification-settings');
   };
 
   const handleUpgradePro = () => {
@@ -287,6 +440,22 @@ export default function ProfileScreen() {
               value={rankInfo.title}
             />
           </View>
+
+          <View style={styles.achievementsSection}>
+            <Text style={styles.sectionTitle}>
+              <Trophy size={20} color={Colors.primary[400]} style={styles.sectionIcon} />
+              Başarımlar
+            </Text>
+            <Card style={styles.achievementsCard}>
+              {Object.values(ACHIEVEMENTS).map((achievement) => (
+                <AchievementCard
+                  key={achievement.id}
+                  achievement={achievement}
+                  unlocked={unlockedAchievements.includes(achievement.id)}
+                />
+              ))}
+            </Card>
+          </View>
           
           <View style={styles.settingsSection}>
             <Text style={styles.sectionTitle}>Ayarlar</Text>
@@ -295,6 +464,12 @@ export default function ProfileScreen() {
                 icon={<User size={20} color={Colors.primary[400]} />}
                 title="Hesap Ayarları"
                 onPress={handleAccountSettings}
+              />
+              <SettingsItem 
+                icon={<Bell size={20} color={Colors.primary[400]} />}
+                title="Bildirimler"
+                onPress={handleNotificationSettings}
+                showNotificationBadge={true}
               />
               <SettingsItem 
                 icon={<Crown size={20} color={Colors.primary[400]} />}
@@ -431,6 +606,41 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.sm,
     color: Colors.text.secondary,
   },
+  achievementsSection: {
+    marginBottom: Spacing.xl,
+  },
+  achievementsCard: {
+    padding: Spacing.md,
+  },
+  achievementCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.darkGray[800],
+  },
+  achievementIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Spacing.md,
+  },
+  achievementInfo: {
+    flex: 1,
+  },
+  achievementTitle: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: FontSizes.md,
+    color: Colors.text.primary,
+    marginBottom: 2,
+  },
+  achievementDescription: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSizes.sm,
+    color: Colors.text.secondary,
+  },
   settingsSection: {
     marginBottom: Spacing.xl,
   },
@@ -439,6 +649,11 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.lg,
     color: Colors.text.primary,
     marginBottom: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sectionIcon: {
+    marginRight: Spacing.xs,
   },
   settingsCard: {
     padding: 0,
@@ -461,6 +676,20 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: 'Inter-Medium',
     fontSize: FontSizes.md,
+    color: Colors.text.primary,
+  },
+  notificationBadge: {
+    backgroundColor: Colors.primary[500],
+    borderRadius: BorderRadius.round,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Spacing.sm,
+  },
+  notificationBadgeText: {
+    fontFamily: 'Inter-Bold',
+    fontSize: FontSizes.xs,
     color: Colors.text.primary,
   },
   signOutButton: {

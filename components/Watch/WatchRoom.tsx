@@ -7,10 +7,168 @@ import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import { supabase } from '@/lib/supabase';
 import { WebView } from 'react-native-webview';
 
-// ... (diğer tip tanımlamaları ve yardımcı fonksiyonlar aynı kalacak)
+interface WatchRoomMessage {
+  id: string;
+  content: string;
+  user_id: string;
+  userName?: string;
+  created_at: string;
+}
+
+interface WatchRoomMember {
+  user_id: string;
+  joined_at: string;
+  user?: {
+    name: string;
+    avatar_url: string;
+  };
+}
+
+interface WatchRoomProps {
+  roomId: string;
+  room: {
+    id: string;
+    name: string;
+    video_url: string;
+  };
+  onClose: () => void;
+}
+
+const VideoPlayer: React.FC<{ videoUrl: string }> = ({ videoUrl }) => {
+  return (
+    <WebView
+      style={{ flex: 1 }}
+      source={{ uri: videoUrl }}
+      allowsFullscreenVideo
+      mediaPlaybackRequiresUserAction={false}
+    />
+  );
+};
+
+const formatTime = (timestamp: string) => {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+};
 
 export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) => {
-  // ... (state ve effect hooks'lar aynı kalacak)
+  const { user } = useAuth();
+  const [members, setMembers] = useState<WatchRoomMember[]>([]);
+  const [messages, setMessages] = useState<WatchRoomMessage[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    fetchMembers();
+    fetchMessages();
+    setupRealtime();
+
+    return () => {
+      supabase.removeChannel('watch_room_updates');
+    };
+  }, [roomId]);
+
+  const fetchMembers = async () => {
+    const { data, error } = await supabase
+      .from('watch_room_members')
+      .select(`
+        user_id,
+        joined_at,
+        users (
+          name,
+          avatar_url
+        )
+      `)
+      .eq('room_id', roomId);
+
+    if (error) {
+      console.error('Error fetching members:', error);
+      return;
+    }
+
+    setMembers(data || []);
+  };
+
+  const fetchMessages = async () => {
+    const { data, error } = await supabase
+      .from('watch_room_messages')
+      .select(`
+        *,
+        users (
+          name
+        )
+      `)
+      .eq('room_id', roomId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching messages:', error);
+      return;
+    }
+
+    const formattedMessages = data.map(msg => ({
+      ...msg,
+      userName: msg.users?.name
+    }));
+
+    setMessages(formattedMessages);
+  };
+
+  const setupRealtime = () => {
+    const channel = supabase
+      .channel('watch_room_updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'watch_room_members',
+          filter: `room_id=eq.${roomId}`
+        },
+        () => {
+          fetchMembers();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'watch_room_messages',
+          filter: `room_id=eq.${roomId}`
+        },
+        payload => {
+          if (payload.new) {
+            setMessages(current => [...current, payload.new as WatchRoomMessage]);
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+          }
+        }
+      )
+      .subscribe();
+
+    return channel;
+  };
+
+  const handleSend = async () => {
+    if (!newMessage.trim() || loading) return;
+
+    setLoading(true);
+    const { error } = await supabase
+      .from('watch_room_messages')
+      .insert({
+        room_id: roomId,
+        user_id: user?.id,
+        content: newMessage.trim()
+      });
+
+    setLoading(false);
+    if (error) {
+      console.error('Error sending message:', error);
+      return;
+    }
+
+    setNewMessage('');
+  };
 
   return (
     <View style={styles.container}>

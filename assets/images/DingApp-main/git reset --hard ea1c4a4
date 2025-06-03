@@ -1,0 +1,109 @@
+[33m45f1d0b[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m Minimize assignments section
+[33med5b10b[m Fix AI chat greeting and history issues
+[33m9ef6660[m Fix AI chat greeting and history issues
+[33mea1c4a4[m Add profile photos to study room
+[33me1752f4[m Add profile photos to chat messages
+[33m158e875[m Updated profile.tsx
+[33m1ab449a[m Fix TypeError: Illegal constructor error
+[33md68c5b6[m Update Profile Screen with Achievements and Notifications
+[33med7f619[m Updated ai-chat.tsx
+[33m7860c62[m Updated ai-chat.tsx
+[33m05f10bc[m Fix theme constant references
+[33m0016a91[m Fix undefined userInfo variable
+[33m1fbfe6f[m Updated ai-chat.tsx
+[33m6d38b68[m Update AI Chat Clear History
+[33m068e3ab[m Updated profile.tsx
+[33m8c431d2[m Update Chat History Clear
+[33m7f5576e[m Update AI Coach System
+[33m0dd9984[m Updated gemini.ts
+[33m460eb77[m Updated gemini.ts
+[33m655e405[m Updated gemini.ts
+[33mf95254c[m Updated gemini.ts
+[33meb69cb2[m Updated gemini.ts
+[33m8732730[m Updated ai-chat.tsx
+[33mbe30a48[m Updated _layout.tsx
+[33me8b043c[m Fix Route Configuration
+[33m7c8ecc4[m Improve AI Chat Memory and History
+[33md504bbd[m Updated package-lock.json
+[33m697922a[m Updated ai-chat.tsx
+[33mafc978d[m Updated ai-chat.tsx
+[33m6e8255c[m Updated ai-chat.tsx
+[33ma48ea92[m Add Voice Assistant Feature
+[33mea0d85e[m Updated ChatRoom.tsx
+[33m7a49f54[m Updated ChatRoom.tsx
+[33mdfe672e[m Updated JoinRoomModal.tsx
+[33mbcd1ce8[m Fix theme constants import
+[33me5b810e[m Fix ChatRoom styling and animation
+[33m7116de7[m Add profile photos to chat messages
+[33ma2033bf[m Fix profile photo upload
+[33m8323821[m Update profile photo synchronization
+[33ma7e4ce5[m Fix profile photo query error
+[33m41f9d7b[m Fix profile photo synchronization
+[33m45316b8[m Fix profile photo upload unique constraint error
+[33mc3a34c4[m Update profile photo upload to use profile_photos bucket
+[33m3758156[m Fix avatar upload for web platform
+[33m9fa4424[m Profil Fotoğrafı Yükleme Özelliği
+[33mc582556[m Updated WatchRoom.tsx
+[33m11e11be[m Fix video synchronization
+[33m467f6d1[m Fix WatchRoom component errors
+[33m99d7721[m Implement synchronized video playback
+[33m7f6f358[m Implement synchronized video playback
+[33m91a7340[m Fix video state query in WatchRoom component
+[33maaed25b[m Watch Room Video Controls
+[33mc9d00e1[m Updated WatchRoom.tsx
+[33mf7fbc05[m Updated _layout.tsx
+[33m33b3fb1[m Tema undefined hatasını düzelt
+[33m97e3d43[m Fix missing styles in WatchRoom component
+[33me6600a7[m Add video state synchronization
+[33m283a6e1[m Updated ThemeContext.tsx
+[33m8b86492[m Fix theme context and layout
+[33mba00e8c[m Add styles to WatchRoom component
+[33m39c3337[m Video Synchronization Implementation
+[33m64349de[m Optimize Watch Room for Mobile
+[33m284ef09[m Add AI Coach Feature
+[33m00b6826[m Updated index.tsx
+[33md0edb26[m Add AI Coach Feature
+[33m0305af9[m Updated WatchRoom.tsx
+[33m74a1b7c[m Update Watch Room Layout
+[33m4e75f3a[m Updated help-support.tsx
+[33mf27506f[m Updated help-support.tsx
+[33m32c12ca[m Fix Watch Room Messages RLS
+[33m3afe453[m Fix Watch Room Messages Migration
+[33m3f729dd[m Added 20250531105417_cool_coast.sql
+[33me5e0e3e[m Fix Watch Room RLS Policies
+[33m5281333[m Update RLS policy for watch room messages
+[33m7c3683a[m Updated WatchRoom.tsx
+[33mea40aeb[m Fix undefined members in WatchRoom component
+[33mdfb3902[m Update WatchRoom layout for mobile
+[33m4bf3250[m Updated WatchRoom.tsx
+[33mf2fe25a[m Updated supabase.ts
+[33m5bfd339[m Update Supabase type definitions for watch room members
+[33ma1c2aee[m Fix WatchRoom component members state
+[33m480f177[m Updated WatchRoom.tsx
+[33md110820[m Update WatchRoom layout to stack video and chat vertically
+[33m99a49a0[m Update WatchRoom component with platform-specific video player
+[33m1b6d5be[m Updated JoinRoomModal.tsx
+[33md9bb9b8[m Fix watch route conflict and duplicate membership handling
+[33m0b23504[m Swap Study and Watch tabs order
+[33mb31befe[m Fix video playback and layout
+[33m4ca7381[m Add Watch tab and fix video playback
+[33m9b1df91[m Fix YouTube video embedding in WatchRoom
+[33m8c2ccd4[m Fix WatchRoom component queries
+[33m65db593[m Update watch room messages policies
+[33m6924b5b[m Add foreign key constraint to watch_room_messages
+[33mc7d0222[m Update Watch Room layout with vertical design
+[33m517ff18[m Updated CreateRoomModal.tsx
+[33m748f78f[m Updated CreateRoomModal.tsx
+[33m8799bab[m Updated CreateRoomModal.tsx
+[33m797adee[m Fix text node errors in auth components
+[33m3e6d428[m Fix Watch Room Migration
+[33md893f9f[m Added 20250531085751_graceful_fog.sql
+[33m17c8a8f[m Updated package-lock.json
+[33m93029ce[m Create Watch Room Database Tables
+[33m4e0e691[m[33m ([m[1;31morigin/Ding_v1.2[m[33m)[m Updated profile.tsx
+[33md550f59[m Add pro user notification
+[33m13cd6db[m Update ChatRoom component to show user name
+[33mdb3ec3b[m Updated package-lock.json
+[33mb2e50e6[m Updated .gitignore
+[33m4f53b01[m Ding_version_1.1
+[33m7ab807f[m dosya aktarımı

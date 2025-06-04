@@ -41,6 +41,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
   const [users, setUsers] = useState<{[key: string]: {name: string, photoUrl: string | null}}>({}); 
   const [attachmentMenuVisible, setAttachmentMenuVisible] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<{uri: string, type: 'image' | 'file', name: string} | null>(null);
+  const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -258,18 +259,23 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: [4, 3],
+        allowsMultipleSelection: false,
         quality: 0.8,
+        presentationStyle: ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
       });
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
+        const fileName = asset.fileName || `image_${Date.now()}.jpg`;
+        
+        setAttachmentMenuVisible(false);
+        
+        // Direkt olarak fotoğrafı seç, dialog açma
         setSelectedMedia({
           uri: asset.uri,
           type: 'image',
-          name: asset.fileName || `image_${Date.now()}.jpg`
+          name: fileName
         });
-        setAttachmentMenuVisible(false);
       }
     } catch (error) {
       console.error('Error picking image:', error);
@@ -287,18 +293,23 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
 
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
-        aspect: [4, 3],
+        allowsMultipleSelection: false,
         quality: 0.8,
+        presentationStyle: ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
       });
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
+        const fileName = asset.fileName || `photo_${Date.now()}.jpg`;
+        
+        setAttachmentMenuVisible(false);
+        
+        // Direkt olarak fotoğrafı seç, dialog açma
         setSelectedMedia({
           uri: asset.uri,
           type: 'image',
-          name: asset.fileName || `photo_${Date.now()}.jpg`
+          name: fileName
         });
-        setAttachmentMenuVisible(false);
       }
     } catch (error) {
       console.error('Error taking photo:', error);
@@ -474,11 +485,13 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
               {isMediaMessage && messageData ? (
                 <View>
                   {messageData.type === 'image' ? (
-                    <Image 
-                      source={{ uri: messageData.url }} 
-                      style={styles.messageImage}
-                      resizeMode="cover"
-                    />
+                    <TouchableOpacity onPress={() => setEnlargedImage(messageData.url)}>
+                      <Image 
+                        source={{ uri: messageData.url }} 
+                        style={styles.messageImage}
+                        resizeMode="cover"
+                      />
+                    </TouchableOpacity>
                   ) : (
                     <View style={styles.fileContainer}>
                       <File size={24} color={theme.colors.text.primary} />
@@ -512,11 +525,13 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
               {isMediaMessage && messageData ? (
                 <View>
                   {messageData.type === 'image' ? (
-                    <Image 
-                      source={{ uri: messageData.url }} 
-                      style={styles.messageImage}
-                      resizeMode="cover"
-                    />
+                    <TouchableOpacity onPress={() => setEnlargedImage(messageData.url)}>
+                      <Image 
+                        source={{ uri: messageData.url }} 
+                        style={styles.messageImage}
+                        resizeMode="cover"
+                      />
+                    </TouchableOpacity>
                   ) : (
                     <View style={styles.fileContainer}>
                       <File size={24} color={theme.colors.text.primary} />
@@ -749,6 +764,31 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
           </KeyboardAvoidingView>
         </SafeAreaView>
       </GradientBackground>
+
+      {/* Fotoğraf Büyütme Modal'ı */}
+      {enlargedImage && (
+        <View style={styles.imageModal}>
+          <TouchableOpacity 
+            style={styles.imageModalBackground}
+            onPress={() => setEnlargedImage(null)}
+            activeOpacity={1}
+          >
+            <View style={styles.imageModalContent}>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => setEnlargedImage(null)}
+              >
+                <X size={32} color={Colors.text.primary} />
+              </TouchableOpacity>
+              <Image 
+                source={{ uri: enlargedImage }} 
+                style={styles.enlargedImage}
+                resizeMode="contain"
+              />
+            </View>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 };
@@ -1019,5 +1059,44 @@ const styles = StyleSheet.create({
     padding: Spacing.xs,
     alignSelf: 'flex-start',
     marginTop: Spacing.xs,
+  },
+  imageModal: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  imageModalBackground: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageModalContent: {
+    backgroundColor: Colors.background.elevated,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    maxWidth: '90%',
+    maxHeight: '80%',
+    width: 300,
+    height: 400,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: Spacing.xs,
+    right: Spacing.xs,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.background.darker,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  enlargedImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: BorderRadius.md,
   },
 });

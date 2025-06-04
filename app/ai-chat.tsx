@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Image, ImageBackground } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Image, ImageBackground, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { Colors, Spacing, FontSizes, BorderRadius } from '@/constants/Theme';
 import { useAuth } from '@/context/AuthContext';
-import { ArrowLeft, Send, X, Edit, Trash } from 'lucide-react-native';
+import { ArrowLeft, Send, X, Edit, Trash, Paperclip, Camera, File } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
-import { getGeminiStreamResponse, getGeminiResponse } from '@/lib/gemini';
+import { getGeminiStreamResponse, getGeminiResponse, analyzeImageWithVision } from '@/lib/gemini';
 import * as AIChatService from '@/lib/aiChatService';
 import { ChatMessage, UserInfo } from '@/lib/aiChatService';
 import { useFocusEffect } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
@@ -55,6 +57,9 @@ export default function AIChatScreen() {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [isHomeworkExpanded, setIsHomeworkExpanded] = useState(false);
+  const [attachmentMenuVisible, setAttachmentMenuVisible] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState<{uri: string, type: 'image' | 'file', name: string} | null>(null);
+  const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const animationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -512,96 +517,138 @@ export default function AIChatScreen() {
   };
 
   const handleSend = async () => {
-    if (!newMessage.trim() || isLoading || !user) return;
-
-    // UUID formatında ID oluştur
-    const messageId = generateUUID();
-    const messageText = newMessage.trim(); // Mesaj içeriğini sakla
-
+    if (!newMessage.trim() && !selectedMedia) return;
+    if (isLoading) return;
+    
+    let mediaData: string | null = null;
+    
+    // Medya varsa işle
+    if (selectedMedia) {
+      mediaData = await processMedia(selectedMedia.uri, selectedMedia.name);
+    }
+    
     const userMessage: ChatMessage = {
-      id: messageId,
+      id: generateUUID(),
       role: 'user',
-      content: messageText,
+      content: selectedMedia 
+        ? JSON.stringify({ 
+            type: selectedMedia.type, 
+            url: mediaData, 
+            name: selectedMedia.name,
+            text: newMessage.trim() || '' 
+          })
+        : newMessage.trim(),
       timestamp: new Date()
     };
 
-    // Önce kullanıcı mesajını ekle
+    // UI'ı güncelle
     setMessages(prev => [...prev, userMessage]);
     setNewMessage('');
+    setSelectedMedia(null);
     setIsLoading(true);
     
+    scrollToBottom();
+
     try {
-      // Veritabanına kullanıcı mesajını kaydet
-      await AIChatService.addChatMessage(user.id, {
-        role: userMessage.role,
-        content: userMessage.content,
-        timestamp: userMessage.timestamp
-      });
-    } catch (dbError) {
-      console.error('Veritabanı hatası (mesaj kaydedilirken):', dbError);
-      // Veritabanı hatası sessizce yönetilir, kullanıcı deneyimini etkilemez
-    }
-
-    // Mobil cihazda ağ bağlantısı için biraz bekle
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    let retryCount = 0;
-    const maxRetries = 2;
-    
-    async function attemptGetResponse() {
-      try {
-        // Sohbet geçmişi 
-        const chatHistory = getChatHistory();
-        
-        // Mesaj çok uzun mu kontrol et
-        const truncatedMessage = messageText.length > 500 
-          ? messageText.substring(0, 500) + "..." 
-          : messageText;
-        
-        console.log("Gemini yanıtı isteniyor...");
-        
-        // AI yanıtı için istek
-        const stream = await getGeminiStreamResponse(truncatedMessage, chatHistory, userInfo);
-        
-        // Stream yanıtını işle
-        await processStreamResponse(stream);
-        
-        return true; // Başarılı
-      } catch (error) {
-        console.error(`Yanıt hatası (deneme ${retryCount + 1}/${maxRetries}):`, error);
-        return false; // Başarısız
+      // Veritabanına kaydet
+      await AIChatService.addChatMessage(user!.id, userMessage);
+      
+      // AI'ye gönderilecek mesajı hazırla
+      let aiPrompt = userMessage.content;
+      
+      if (selectedMedia && mediaData) {
+        if (selectedMedia.type === 'image') {
+          aiPrompt += `\n\nKullanıcı bir fotoğraf gönderdi: ${selectedMedia.name}. Bu fotoğrafla ilgili yardım isteyebilir.`;
+        } else {
+          aiPrompt += `\n\nKullanıcı bir dosya gönderdi: ${selectedMedia.name}. Bu dosyayla ilgili yardım isteyebilir.`;
+        }
       }
-    }
-    
-    // İlk deneme
-    let success = await attemptGetResponse();
-    
-    // Başarısızsa tekrar dene
-    while (!success && retryCount < maxRetries) {
-      retryCount++;
-      console.log(`Tekrar deneniyor (${retryCount}/${maxRetries})...`);
+
+      // Gemini'den yanıt al
+      async function attemptGetResponse() {
+        try {
+          let aiResponse;
+          
+          // Eğer fotoğraf varsa Gemini Vision kullan
+          if (selectedMedia && selectedMedia.type === 'image' && mediaData) {
+            console.log('Fotoğraf analizi için Gemini Vision kullanılıyor...');
+            aiResponse = await analyzeImageWithVision(
+              mediaData,
+              newMessage.trim(),
+              userInfo
+            );
+            
+            if (aiResponse) {
+              const aiMessage: ChatMessage = {
+                id: generateUUID(),
+                role: 'assistant',
+                content: aiResponse,
+                timestamp: new Date()
+              };
+              
+              setMessages(prev => [...prev, aiMessage]);
+              await AIChatService.addChatMessage(user!.id, aiMessage);
+              await processAIResponseForUserInfo(aiResponse, newMessage.trim());
+              return;
+            }
+          }
+          
+          // Normal stream yanıtı için
+          const stream = await getGeminiStreamResponse(
+            aiPrompt,
+            getChatHistory(),
+            userInfo
+          );
+          
+          if (stream) {
+            await processStreamResponse(stream);
+          } else {
+            throw new Error('Stream response is null');
+          }
+        } catch (streamError) {
+          console.warn('Stream failed, trying direct response:', streamError);
+          
+          try {
+            const directResponse = await getGeminiResponse(
+              aiPrompt,
+              getChatHistory(),
+              userInfo
+            );
+            
+            if (directResponse) {
+              const aiMessage: ChatMessage = {
+                id: generateUUID(),
+                role: 'assistant',
+                content: directResponse,
+                timestamp: new Date()
+              };
+              
+              setMessages(prev => [...prev, aiMessage]);
+              await AIChatService.addChatMessage(user!.id, aiMessage);
+              await processAIResponseForUserInfo(directResponse, aiPrompt);
+            }
+          } catch (directError) {
+            console.error('Direct response also failed:', directError);
+            throw directError;
+          }
+        }
+      }
+
+      await attemptGetResponse();
       
-      // Kısa bekleme
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      success = await attemptGetResponse();
-    }
-    
-    // Tüm denemeler başarısızsa
-    if (!success) {
-      console.error("Tüm denemeler başarısız oldu");
+    } catch (error) {
+      console.error('Mesaj gönderme hatası:', error);
       
-      // Hata durumunda kullanıcıya bilgi ver
       const errorMessage: ChatMessage = {
         id: generateUUID(),
         role: 'assistant',
-        content: 'Üzgünüm, şu anda yanıt alamıyorum. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.',
+        content: 'Üzgünüm, şu anda bir teknik sorun yaşıyorum. Lütfen daha sonra tekrar deneyin.',
         timestamp: new Date()
       };
       
       setMessages(prev => [...prev, errorMessage]);
     }
     
-    // Her durumda yükleme durumunu kapat
     setIsLoading(false);
   };
 
@@ -612,6 +659,127 @@ export default function AIChatScreen() {
     });
   };
   
+  const pickImage = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('İzin Gerekli', 'Fotoğraf seçmek için galeri erişim izni gerekli');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        allowsMultipleSelection: false,
+        quality: 0.8,
+        presentationStyle: ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        const fileName = asset.fileName || `image_${Date.now()}.jpg`;
+        
+        setAttachmentMenuVisible(false);
+        
+        // Direkt olarak fotoğrafı seç, dialog açma
+        setSelectedMedia({
+          uri: asset.uri,
+          type: 'image',
+          name: fileName
+        });
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Hata', 'Fotoğraf seçilirken bir hata oluştu');
+    }
+  };
+
+  const takePhoto = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('İzin Gerekli', 'Fotoğraf çekmek için kamera erişim izni gerekli');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        allowsMultipleSelection: false,
+        quality: 0.8,
+        presentationStyle: ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        const fileName = asset.fileName || `photo_${Date.now()}.jpg`;
+        
+        setAttachmentMenuVisible(false);
+        
+        // Direkt olarak fotoğrafı seç, dialog açma
+        setSelectedMedia({
+          uri: asset.uri,
+          type: 'image',
+          name: fileName
+        });
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      Alert.alert('Hata', 'Fotoğraf çekilirken bir hata oluştu');
+    }
+  };
+
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        setSelectedMedia({
+          uri: asset.uri,
+          type: 'file',
+          name: asset.name
+        });
+        setAttachmentMenuVisible(false);
+      }
+    } catch (error) {
+      console.error('Error picking document:', error);
+      Alert.alert('Hata', 'Dosya seçilirken bir hata oluştu');
+    }
+  };
+
+  const removeSelectedMedia = () => {
+    setSelectedMedia(null);
+  };
+
+  const processMedia = async (mediaUri: string, fileName: string): Promise<string> => {
+    try {
+      console.log('Processing media for AI...', fileName);
+      
+      const response = await fetch(mediaUri);
+      const blob = await response.blob();
+      
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64Data = reader.result as string;
+          console.log('Media converted to base64, size:', Math.round(base64Data.length / 1024), 'KB');
+          resolve(base64Data);
+        };
+        reader.onerror = () => {
+          console.log('FileReader failed, using original URI');
+          resolve(mediaUri);
+        };
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error('Error processing media:', error);
+      return mediaUri;
+    }
+  };
+
   // Sohbet geçmişini temizle
   const handleClearChat = async () => {
     if (!user) return;
@@ -648,9 +816,9 @@ export default function AIChatScreen() {
           <ArrowLeft size={24} color={Colors.text.primary} />
         </TouchableOpacity>
         <View style={styles.headerInfo}>
-          <Text style={styles.title}>AI Koç</Text>
+          <Text style={styles.title}>Eğitim Koçum</Text>
           <Text style={styles.subtitle}>
-            {userInfo?.name ? `Merhaba, ${userInfo.name}` : 'Size nasıl yardımcı olabilirim?'}
+            {userInfo?.name ? `Merhaba ${userInfo.name} ` : ''}
           </Text>
         </View>
         <TouchableOpacity onPress={handleClearChat} style={styles.clearButton}>
@@ -734,25 +902,63 @@ export default function AIChatScreen() {
               </View>
             )}
             
-            {messages.map((message) => (
-              <View
-                key={message.id}
-                style={[
-                  styles.messageWrapper,
-                  message.role === 'user' ? styles.userMessageWrapper : null
-                ]}
-              >
-                <View style={[
-                  styles.messageContainer,
-                  message.role === 'user' ? styles.userMessage : styles.assistantMessage
-                ]}>
-                  <Text style={styles.messageText}>{message.content}</Text>
-                  <Text style={styles.messageTime}>
-                    {formatTime(message.timestamp)}
-                  </Text>
+            {messages.map((message) => {
+              // Mesajın medya içeriği olup olmadığını kontrol et
+              let messageData = null;
+              let isMediaMessage = false;
+              
+              try {
+                messageData = JSON.parse(message.content);
+                isMediaMessage = messageData && (messageData.type === 'image' || messageData.type === 'file');
+              } catch {
+                // JSON parse edilemezse normal text mesajı
+                isMediaMessage = false;
+              }
+
+              return (
+                <View
+                  key={message.id}
+                  style={[
+                    styles.messageWrapper,
+                    message.role === 'user' ? styles.userMessageWrapper : null
+                  ]}
+                >
+                  <View style={[
+                    styles.messageContainer,
+                    message.role === 'user' ? styles.userMessage : styles.assistantMessage
+                  ]}>
+                    {isMediaMessage && messageData ? (
+                      <View>
+                        {messageData.type === 'image' ? (
+                          <TouchableOpacity onPress={() => setEnlargedImage(messageData.url)}>
+                            <Image 
+                              source={{ uri: messageData.url }} 
+                              style={styles.messageImage}
+                              resizeMode="cover"
+                            />
+                          </TouchableOpacity>
+                        ) : (
+                          <View style={styles.fileContainer}>
+                            <File size={24} color={Colors.text.primary} />
+                            <Text style={styles.fileName}>
+                              {messageData.name}
+                            </Text>
+                          </View>
+                        )}
+                        {messageData.text && (
+                          <Text style={styles.messageText}>{messageData.text}</Text>
+                        )}
+                      </View>
+                    ) : (
+                      <Text style={styles.messageText}>{message.content}</Text>
+                    )}
+                    <Text style={styles.messageTime}>
+                      {formatTime(message.timestamp)}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
             
             {streamingContent ? (
               <View style={[styles.messageWrapper]}>
@@ -774,25 +980,124 @@ export default function AIChatScreen() {
           </ScrollView>
         )}
 
+        {/* Seçilen medya önizlemesi */}
+        {selectedMedia && (
+          <View style={styles.mediaPreview}>
+            <View style={styles.mediaPreviewContent}>
+              {selectedMedia.type === 'image' ? (
+                <Image source={{ uri: selectedMedia.uri }} style={styles.previewImage} />
+              ) : (
+                <View style={styles.previewFile}>
+                  <File size={32} color={Colors.text.primary} />
+                  <Text style={styles.previewFileName} numberOfLines={1}>
+                    {selectedMedia.name}
+                  </Text>
+                </View>
+              )}
+              <TouchableOpacity 
+                style={styles.removeMediaButton}
+                onPress={removeSelectedMedia}
+              >
+                <X size={16} color={Colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Attachment Menu */}
+        {attachmentMenuVisible && (
+          <View style={styles.attachmentMenu}>
+            <TouchableOpacity 
+              style={styles.attachmentOption}
+              onPress={pickImage}
+            >
+              <View style={[styles.attachmentIcon, { backgroundColor: Colors.primary[500] + '20' }]}>
+                <Camera size={20} color={Colors.primary[400]} />
+              </View>
+              <Text style={styles.attachmentText}>Galeri</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.attachmentOption}
+              onPress={takePhoto}
+            >
+              <View style={[styles.attachmentIcon, { backgroundColor: Colors.success + '20' }]}>
+                <Camera size={20} color={Colors.success} />
+              </View>
+              <Text style={styles.attachmentText}>Kamera</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.attachmentOption}
+              onPress={pickDocument}
+            >
+              <View style={[styles.attachmentIcon, { backgroundColor: Colors.warning + '20' }]}>
+                <File size={20} color={Colors.warning} />
+              </View>
+              <Text style={styles.attachmentText}>Dosya</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            value={newMessage}
-            onChangeText={setNewMessage}
-            placeholder="Soru veya konu yazın..."
-            placeholderTextColor={Colors.text.secondary}
-            multiline
-            maxLength={500}
-          />
-          <TouchableOpacity
-            style={[styles.sendButton, (!newMessage.trim() || isLoading) && styles.sendButtonDisabled]}
-            onPress={handleSend}
-            disabled={!newMessage.trim() || isLoading}
-          >
-            <Send size={20} color={Colors.text.primary} />
-          </TouchableOpacity>
+          <View style={styles.inputRow}>
+            <TouchableOpacity
+              style={styles.attachmentButton}
+              onPress={() => setAttachmentMenuVisible(!attachmentMenuVisible)}
+            >
+              <Paperclip size={20} color={Colors.text.secondary} />
+            </TouchableOpacity>
+
+            <TextInput
+              style={styles.input}
+              value={newMessage}
+              onChangeText={setNewMessage}
+              placeholder={selectedMedia ? 
+                (selectedMedia.type === 'image' ? 
+                  "Fotoğraftaki soruları çözmem için 'çöz' yazın veya ek soru sorun..." : 
+                  "Dosya ile ilgili soru sorun..."
+                ) : 
+                "Mesajınızı yazın..."
+              }
+              placeholderTextColor={Colors.text.secondary}
+              multiline
+              maxLength={500}
+            />
+            <TouchableOpacity
+              style={[styles.sendButton, ((!newMessage.trim() && !selectedMedia) || isLoading) && styles.sendButtonDisabled]}
+              onPress={handleSend}
+              disabled={(!newMessage.trim() && !selectedMedia) || isLoading}
+            >
+              <Send size={20} color={Colors.text.primary} />
+            </TouchableOpacity>
+          </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Fotoğraf Büyütme Modal'ı */}
+      {enlargedImage && (
+        <View style={styles.imageModal}>
+          <TouchableOpacity 
+            style={styles.imageModalBackground}
+            onPress={() => setEnlargedImage(null)}
+            activeOpacity={1}
+          >
+            <View style={styles.imageModalContent}>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => setEnlargedImage(null)}
+              >
+                <X size={24} color={Colors.text.primary} />
+              </TouchableOpacity>
+              <Image 
+                source={{ uri: enlargedImage }} 
+                style={styles.enlargedImage}
+                resizeMode="contain"
+              />
+            </View>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
@@ -911,8 +1216,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
     padding: Spacing.md,
     backgroundColor: Colors.background.darker,
     borderTopWidth: 1,
@@ -937,7 +1240,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary[500],
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: Spacing.sm,
   },
   sendButtonDisabled: {
     opacity: 0.5,
@@ -1020,5 +1322,145 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     fontSize: FontSizes.xs,
     color: Colors.text.primary,
+  },
+  mediaPreview: {
+    padding: Spacing.md,
+    backgroundColor: Colors.background.darker,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.darkGray[800],
+  },
+  mediaPreviewContent: {
+    backgroundColor: Colors.darkGray[700],
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    position: 'relative',
+    maxHeight: 120,
+  },
+  previewImage: {
+    width: '100%',
+    height: 100,
+    borderRadius: BorderRadius.md,
+  },
+  previewFile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.md,
+  },
+  previewFileName: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSizes.sm,
+    color: Colors.text.primary,
+    marginLeft: Spacing.sm,
+    flex: 1,
+  },
+  removeMediaButton: {
+    position: 'absolute',
+    top: Spacing.xs,
+    right: Spacing.xs,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  attachmentMenu: {
+    flexDirection: 'row',
+    backgroundColor: Colors.background.darker,
+    padding: Spacing.md,
+    justifyContent: 'space-around',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.darkGray[800],
+  },
+  attachmentOption: {
+    alignItems: 'center',
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.darkGray[700],
+    minWidth: 80,
+  },
+  attachmentIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.round,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.xs,
+  },
+  attachmentText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: FontSizes.xs,
+    color: Colors.text.primary,
+    textAlign: 'center',
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: Spacing.sm,
+  },
+  attachmentButton: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.round,
+    backgroundColor: Colors.darkGray[700],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  messageImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.xs,
+  },
+  fileContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    marginBottom: Spacing.xs,
+  },
+  fileName: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSizes.sm,
+    color: Colors.text.primary,
+    marginLeft: Spacing.sm,
+    flex: 1,
+  },
+  imageModal: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  imageModalBackground: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageModalContent: {
+    backgroundColor: Colors.background.darker,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    maxWidth: '80%',
+    maxHeight: '80%',
+    position: 'relative',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: Spacing.xs,
+    right: Spacing.xs,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  enlargedImage: {
+    width: '100%',
+    height: '100%',
   },
 });

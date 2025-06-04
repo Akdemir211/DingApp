@@ -112,7 +112,7 @@ export function ThemeModal({ visible, onClose }: ThemeModalProps) {
                   mode="light"
                   icon={<Sun size={24} color={theme.colors.primary[500]} />}
                   title="Aydınlık Tema"
-                  description="Açık mavi ve beyaz renk paleti"
+                  description="Açık mavi ve beyaz renk paleti (BETA)"
                   isSelected={themeMode === 'light'}
                 />
                 
@@ -120,7 +120,7 @@ export function ThemeModal({ visible, onClose }: ThemeModalProps) {
                   mode="dark"
                   icon={<Moon size={24} color={theme.colors.primary[500]} />}
                   title="Karanlık Tema"
-                  description="Koyu renk paleti, göz yorgunluğunu azaltır"
+                  description="Koyu renk paleti, göz yorgunluğunu azaltır (Önerilen)"
                   isSelected={themeMode === 'dark'}
                 />
               </View>

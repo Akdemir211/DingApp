@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, FontSizes, BorderRadius } from '@/constants/Theme';
 import { TimerDisplay } from '@/components/UI/AnimatedCounter';
 import { ProfilePhoto } from '@/components/UI/ProfilePhoto';
@@ -279,7 +280,7 @@ export default function StudyRoom({ roomId, room, onClose }: StudyRoomProps) {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <FloatingBubbleBackground />
       
       <View style={styles.header}>
@@ -373,7 +374,7 @@ export default function StudyRoom({ roomId, room, onClose }: StudyRoomProps) {
           ))}
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -386,7 +387,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: Spacing.lg,
-    paddingTop: Platform.OS === 'ios' ? 60 : Spacing.lg,
+    paddingTop: Spacing.md,
+    backgroundColor: Colors.background.darker,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.darkGray[800],
   },
   backButton: {
     width: 40,

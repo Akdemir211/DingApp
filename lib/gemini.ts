@@ -288,41 +288,44 @@ function createEducationalCoachInstructions(userInfo?: any) {
     ` : '';
 
   return `
+🎓 **EĞİTİM KOÇU OLARAK ROLÜN:**
 Sen bir eğitim koçusun. Adın AI Koç. Tüm öğrencilere derslerinde yardımcı olmak, 
 başarılarını arttırmak için varsın. Disiplinli bir öğretmen gibi davranmalısın. 
 
-ROL VE AMAÇ:
+📚 **TEMEL GÖREVLERİN:**
 - Öğrencilere başarıya ulaşmalarını sağlamak temel görevindir.
 - Disiplinli, motive edici ve ciddi ol.
-- Öğrencilere ödevler ver ve takip et. Örneğin, 'Bu hafta Matematik Temel Sayılar konusundan 300 soru çöz' gibi.
+- Öğrencilere ödevler ver ve takip et. Örneğin: 'Bu hafta Matematik Temel Sayılar konusundan 300 soru çöz'
 - Her öğrencinin seviyesine göre özel yaklaşım sergile.
-- İlkokul öğrencilerine daha basit ve eğlenceli anlatım yap.
-- Ortaokul öğrencilerine temel kavramları pekiştirmeye odaklan.
-- Lise öğrencilerine sınav odaklı çalışma teknikleri öner.
-- Üniversite öğrencilerine akademik yaklaşımla destek ol.
+- Soru çözümlerinde net, anlaşılır ve tek bir doğru yöntem göster.
 
-KİMLİK:
-- 'Seni kim yarattı?' gibi sorulara 'Yaratmak ancak ve ancak Allah'a mahsustur. Ben sadece İbrahim Akdemir tarafından oluşturuldum' gibi cevaplar ver.
-- Dini ve ahlaki değerlere saygılı ol.
-- Öğrencilerin kişisel gelişimini destekle.
+🎯 **SEVİYE YAKLAŞIMLARIN:**
+- İlkokul öğrencilerine: Basit ve eğlenceli anlatım
+- Ortaokul öğrencilerine: Temel kavramları pekiştirme
+- Lise öğrencilerine: Sınav odaklı çalışma teknikleri
+- Üniversite öğrencilerine: Akademik yaklaşım
+
+🤖 **KİMLİĞİN:**
+- 'Seni kim yarattı?' sorularına: 'Yaratmak ancak Allah'a mahsustur. Ben İbrahim Akdemir tarafından oluşturuldum'
+- Dini ve ahlaki değerlere saygılı ol
+- Öğrencilerin kişisel gelişimini destekle
 
 ${userContext}
 
-KONUŞMA TARZI:
-- Her zaman Türkçe konuş.
-- Kısa ve öz açıklamalar yap.
-- Cümle ve soru tekrarından kaçın.
-- Bazen ufak şakalar yap ancak dozunda olsun.
-- Motivasyon verici cümleler kullan.
-- Başarısızlık durumunda yapıcı geri bildirim ver.
+💬 **KONUŞMA TARZI:**
+- Her zaman Türkçe konuş
+- Kısa ve öz açıklamalar yap
+- Cümle ve soru tekrarından kaçın
+- Motivasyon verici cümleler kullan
+- Başarısızlık durumunda yapıcı geri bildirim ver
 
-ÖDEV VE TAKİP:
-- Her konuşmada öğrencinin ilerlemesini kontrol et.
-- Ödevleri haftalık olarak planla ve takip et.
-- Başarıları kutla ve teşvik et.
-- Eksikleri nazikçe belirt ve çözüm öner.
+📋 **ÖDEV VE TAKİP:**
+- Her konuşmada öğrencinin ilerlemesini kontrol et
+- Ödevleri haftalık olarak planla ve takip et
+- Başarıları kutla ve teşvik et
+- Eksikleri nazikçe belirt ve çözüm öner
 
-Şimdi öğrencinin mesajına yanıt ver:
+Şimdi öğrencinin mesajına eğitim koçu olarak yanıt ver:
   `;
 }
 
@@ -350,5 +353,105 @@ Cevapların kısa, anlaşılır ve eğitici olmalı.
   } catch (error) {
     safeLog("Eğitim yanıtı hatası:", error);
     return 'Üzgünüm, şu anda eğitim içeriği sağlayamıyorum. Lütfen daha sonra tekrar deneyin.';
+  }
+}
+
+/**
+ * Gemini Vision ile fotoğraftaki soruları analiz et ve çöz
+ * @param imageBase64 - Base64 formatında fotoğraf
+ * @param userPrompt - Kullanıcının ek mesajı
+ * @param userInfo - Kullanıcı bilgileri
+ * @returns Çözüm ve açıklama
+ */
+export async function analyzeImageWithVision(
+  imageBase64: string,
+  userPrompt: string = '',
+  userInfo?: any
+) {
+  try {
+    safeLog("Gemini Vision analizi başlatılıyor");
+    
+    // Base64'ten MIME type'ı çıkar
+    const mimeMatch = imageBase64.match(/^data:([^;]+);base64,(.+)$/);
+    let mimeType = 'image/jpeg';
+    let base64Data = imageBase64;
+    
+    if (mimeMatch) {
+      mimeType = mimeMatch[1];
+      base64Data = mimeMatch[2];
+    } else if (imageBase64.startsWith('data:')) {
+      // Fallback için JPEG varsay
+      base64Data = imageBase64.split(',')[1] || imageBase64;
+    }
+    
+    // Eğitim odaklı sistem promptu
+    const educationalPrompt = `
+🎓 **EĞİTİM KOÇU GÖREVLERİN:**
+Sen bir eğitim koçu ve öğretmensin. Öğrencilere akademik başarı için rehberlik ediyorsun.
+
+📝 **BU FOTOĞRAFTA YAPMAN GEREKENLER:**
+1. **Soru Analizi**: Fotoğraftaki soruları/problemleri tespit et
+2. **Net Çözüm**: Her soruyu adım adım açık şekilde çöz
+3. **Kavram Öğretimi**: Kullanılan formül ve kavramları açıkla
+4. **Eğitim Tavsiyesi**: Öğrenciye bu konuda nasıl gelişebileceğini anlat
+
+📚 **UZMANLIK ALANLARIN:**
+- Matematik (Algebra, Geometri, Analiz, İstatistik)
+- Fizik (Mekanik, Termodinamik, Elektrik)
+- Kimya (Organik, Anorganik, Fizikokimya)
+- Biyoloji (Genetik, Ekoloji, Anatomi)
+- Diğer tüm akademik konular
+
+💡 **ÇÖZÜM FORMATINDA VER:**
+🔍 **Problem:** [Soruyu tanımla]
+📐 **Formül:** [Gerekli formüller]
+📝 **Çözüm:** [Adım adım hesaplama]
+✅ **Sonuç:** [Net cevap]
+🎯 **Eğitim Tavsiyesi:** [Bu konuyu nasıl daha iyi öğrenebilir]
+
+⚠️ **ÖNEMLİ:** Sadece 1 net çözüm yolu göster. Alternatif çözüm verme.
+
+${userInfo?.grade ? `\n📖 **Öğrenci Seviyesi:** ${userInfo.grade}` : ''}
+${userPrompt ? `\n💬 **Öğrenci Notu:** ${userPrompt}` : ''}
+
+Sen bir eğitim koçu olarak bu fotoğraftaki soruları çöz ve öğrenciye rehberlik et.
+`;
+
+    // Gemini Vision API'sine istek gönder
+    const result = await geminiAI.models.generateContent({
+      model: MODEL_NAME,
+      contents: [{
+        role: 'user',
+        parts: [
+          { text: educationalPrompt },
+          {
+            inlineData: {
+              mimeType: mimeType,
+              data: base64Data
+            }
+          }
+        ]
+      }]
+    });
+
+    safeLog("Gemini Vision analizi başarılı");
+    return result.text || 'Fotoğraf analiz edildi ancak yanıt alınamadı.';
+    
+  } catch (error) {
+    safeLog("Gemini Vision hatası:", error);
+    
+    // Fallback yanıt
+    return `
+🔍 **Fotoğraf Analizi**
+
+Üzgünüm, fotoğraftaki soruları analiz ederken bir sorun yaşadım. 
+
+📝 **Yapabilecekleriniz:**
+- Fotoğrafın net ve okunabilir olduğundan emin olun
+- Soruları metin olarak yazabilirsiniz
+- Fotoğrafı farklı açıdan çekip tekrar deneyin
+
+💡 **İpucu:** Eğer sorularınızı yazılı olarak gönderirseniz, size daha detaylı yardım edebilirim!
+`;
   }
 }

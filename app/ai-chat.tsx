@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Image, ImageBackground, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Colors, Spacing, FontSizes, BorderRadius } from '@/constants/Theme';
 import { useAuth } from '@/context/AuthContext';
@@ -807,7 +808,7 @@ export default function AIChatScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Modern eğitim arka planı*/}
       <FloatingBubbleBackground />
       
@@ -815,6 +816,15 @@ export default function AIChatScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <ArrowLeft size={24} color={Colors.text.primary} />
         </TouchableOpacity>
+        
+        <View style={styles.aiCoachAvatar}>
+          <Image 
+            source={require('@/assets/images/ai-coach-robot.png')}
+            style={styles.robotImage}
+            resizeMode="contain"
+          />
+        </View>
+        
         <View style={styles.headerInfo}>
           <Text style={styles.title}>Eğitim Koçum</Text>
           <Text style={styles.subtitle}>
@@ -1098,7 +1108,7 @@ export default function AIChatScreen() {
           </TouchableOpacity>
         </View>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -1111,7 +1121,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: Spacing.lg,
-    paddingTop: Platform.OS === 'ios' ? 60 : Spacing.xl,
+    paddingTop: Spacing.md,
     backgroundColor: Colors.background.darker,
     borderBottomWidth: 1,
     borderBottomColor: Colors.darkGray[800],
@@ -1124,6 +1134,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: Spacing.md,
+  },
+  aiCoachAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.round,
+    backgroundColor: 'rgba(100, 150, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Spacing.md,
+    marginLeft: Spacing.sm,
+    borderWidth: 2,
+    borderColor: Colors.primary[400] + '30',
+  },
+  robotImage: {
+    width: 36,
+    height: 36,
+    borderRadius: BorderRadius.round,
   },
   headerInfo: {
     flex: 1,

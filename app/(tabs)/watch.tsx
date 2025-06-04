@@ -192,6 +192,8 @@ export default function WatchScreen() {
 
   const fetchRooms = async () => {
     try {
+      console.log('🔄 Fetching watch rooms...');
+      
       const { data, error } = await supabase
         .from('watch_rooms')
         .select(`
@@ -200,9 +202,18 @@ export default function WatchScreen() {
         `)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error fetching rooms:', error);
+        if (error.code === '42P01') {
+          throw new Error('Watch rooms tablosu bulunamadı. Veritabanı kurulumu gerekli.');
+        }
+        throw error;
+      }
+      
+      console.log('✅ Fetched rooms:', data?.length || 0);
       setRooms(data || []);
     } catch (err: any) {
+      console.error('💥 fetchRooms failed:', err);
       setError(err.message);
     } finally {
       setLoading(false);

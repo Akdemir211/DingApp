@@ -32,6 +32,15 @@ export const CreateWatchRoomModal: React.FC<CreateWatchRoomModalProps> = ({
       setLoading(true);
       setError(null);
       
+      console.log('🎬 Creating room with data:', {
+        name: name.trim(),
+        description: description.trim(),
+        videoUrl: videoUrl.trim(),
+        isPrivate,
+        password: isPrivate ? password : null,
+        userId: user?.id
+      });
+      
       if (!name.trim()) {
         throw new Error('Oda adı gerekli');
       }
@@ -44,38 +53,66 @@ export const CreateWatchRoomModal: React.FC<CreateWatchRoomModalProps> = ({
         throw new Error('Oturum açmanız gerekiyor');
       }
 
+      console.log('🏠 Creating room...');
+      const roomData = {
+        name: name.trim(),
+        description: description.trim() || null,
+        video_url: videoUrl.trim(),
+        is_private: isPrivate,
+        password_hash: isPrivate ? password.trim() : null,
+        created_by: user.id
+      };
+
       const { data: room, error: roomError } = await supabase
         .from('watch_rooms')
-        .insert({
-          name,
-          description,
-          video_url: videoUrl,
-          is_private: isPrivate,
-          password_hash: isPrivate ? password : null,
-          created_by: user.id
-        })
+        .insert(roomData)
         .select()
         .single();
 
-      if (roomError) throw roomError;
+      if (roomError) {
+        console.error('❌ Room creation error:', roomError);
+        if (roomError.code === '42P01') {
+          throw new Error('Watch rooms tablosu bulunamadı. Veritabanı yapılandırmasını kontrol edin.');
+        } else if (roomError.code === '23503') {
+          throw new Error('Kullanıcı referansı hatası. Lütfen çıkış yapıp tekrar giriş yapın.');
+        } else if (roomError.code === '23502') {
+          throw new Error('Gerekli alanlar eksik. Lütfen tüm alanları doldurun.');
+        }
+        throw new Error(`Oda oluşturma hatası: ${roomError.message}`);
+      }
 
-      // Odayı oluşturan kişiyi otomatik olarak üye yap - upsert kullanarak
+      if (!room) {
+        throw new Error('Oda oluşturuldu ancak veri döndürülmedi');
+      }
+
+      console.log('✅ Room created successfully:', (room as any).id);
+
+      // Odayı oluşturan kişiyi otomatik olarak üye yap
+      console.log('👥 Adding creator as member...');
       const { error: memberError } = await supabase
         .from('watch_room_members')
         .upsert({
-          room_id: room.id,
+          room_id: (room as any).id,
           user_id: user.id,
           joined_at: new Date().toISOString()
         }, {
           onConflict: 'room_id,user_id'
         });
 
-      if (memberError) throw memberError;
+      if (memberError) {
+        console.error('❌ Member addition error:', memberError);
+        // Bu hata kritik değil, sadece log'la
+        console.warn('Creator could not be added as member:', memberError.message);
+      } else {
+        console.log('✅ Creator added as member successfully');
+      }
 
+      console.log('🎉 Room creation process completed');
       onSuccess(room);
       handleClose();
     } catch (err: any) {
-      setError(err.message);
+      console.error('💥 Room creation failed:', err);
+      setError(err.message || 'Bilinmeyen bir hata oluştu');
     } finally {
       setLoading(false);
     }

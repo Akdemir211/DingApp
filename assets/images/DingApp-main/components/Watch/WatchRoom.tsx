@@ -214,11 +214,11 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
       .subscribe();
 
     const videoStateSubscription = supabase
-      .channel('video_states')
+      .channel('watch_room_video_state')
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
-        table: 'video_states',
+        table: 'watch_room_video_state',
         filter: `room_id=eq.${roomId}`
       }, (payload) => {
         if (payload.new && !isCreator) {
@@ -240,7 +240,7 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
   const fetchVideoState = async () => {
     try {
       const { data, error: queryError } = await supabase
-        .from('video_states')
+        .from('watch_room_video_state')
         .select('*')
         .eq('room_id', roomId)
         .maybeSingle();
@@ -255,7 +255,7 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
       } else {
         // Initialize video state if none exists
         const { error: insertError } = await supabase
-          .from('video_states')
+          .from('watch_room_video_state')
           .insert({
             room_id: roomId,
             is_playing: false,
@@ -275,7 +275,7 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
 
     try {
       const { error } = await supabase
-        .from('video_states')
+        .from('watch_room_video_state')
         .update({
           is_playing: newState.is_playing,
           playback_time: newState.playback_time,

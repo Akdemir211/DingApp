@@ -822,14 +822,14 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
   const fetchMembers = async () => {
     try {
       const { data, error } = await supabase
-        .from('watch_room_participants')
+        .from('watch_room_members')
         .select('user_id')
         .eq('room_id', roomId);
 
       if (error) {
         // Eğer tablo yoksa boş dizi kullan
         if (error.code === '42P01') {
-          console.log('Participants table not found, using empty array');
+          console.log('Members table not found, using empty array');
           setMembers([]);
           return;
         }

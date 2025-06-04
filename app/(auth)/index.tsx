@@ -1,17 +1,19 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Image, useWindowDimensions, Platform, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Spacing, FontSizes, BorderRadius } from '@/constants/Theme';
 import { useTheme } from '@/context/ThemeContext';
 import { Button } from '@/components/UI/Button';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
+import { GradientBackground } from '@/components/UI/GradientBackground';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay, Easing } from 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
 import { MessageSquare, Clock, Users, Brain } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 
 export default function WelcomeScreen() {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const { theme, themeMode } = useTheme();
   const logoOpacity = useSharedValue(0);
   const titleOpacity = useSharedValue(0);
@@ -21,6 +23,9 @@ export default function WelcomeScreen() {
   const buttonOpacity = useSharedValue(0);
   const buttonTranslateY = useSharedValue(40);
   const { user } = useAuth();
+  
+  const isTablet = width > 768;
+  const isMobile = width < 768;
   
   useEffect(() => {
     if (user) {
@@ -56,137 +61,170 @@ export default function WelcomeScreen() {
     transform: [{ translateY: buttonTranslateY.value }],
   }));
   
-  const styles = createStyles(theme.colors);
+  const styles = createStyles(theme.colors, width, height, isTablet, isMobile);
   
   return (
     <View style={styles.container}>
       <StatusBar style={themeMode === 'light' ? 'dark' : 'light'} />
-      <FloatingBubbleBackground />
-      
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        bounces={true}
-      >
-        <Animated.View style={[styles.logoContainer, logoStyle]}>
-          <Image
-            source={require('@/assets/images/roomix-logo.png')}
-            style={[styles.logo, { width: width * 0.6, height: width * 0.6 }]}
-          />
-        </Animated.View>
+      <GradientBackground colors={[theme.colors.background.dark, theme.colors.background.darker]}>
+        <FloatingBubbleBackground />
         
-        <Animated.View style={[styles.contentContainer, titleStyle]}>
-          <Text style={styles.appName}>Roomix</Text>
-          <Text style={styles.tagline}>Bağlan. Sohbet Et. Birlikte Çalış.</Text>
-        </Animated.View>
-        
-        <Animated.View style={[styles.featuresContainer, featureStyle]}>
-          <View style={styles.featureItem}>
-            <MessageSquare size={28} color={theme.colors.primary[400]} />
-            <Text style={styles.featureText}>Özel konuşmalar için şifreli sohbet odaları</Text>
-          </View>
-          
-          <View style={styles.featureItem}>
-            <Clock size={28} color={theme.colors.primary[400]} />
-            <Text style={styles.featureText}>Verimlilik zamanlayıcılı çalışma odaları</Text>
-          </View>
-          
-          <View style={styles.featureItem}>
-            <Users size={28} color={theme.colors.primary[400]} />
-            <Text style={styles.featureText}>Sıralama tablolu ortak çalışma alanları</Text>
-          </View>
+        <SafeAreaView style={styles.safeArea}>
+          <ScrollView 
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            bounces={true}
+          >
+            <Animated.View style={[styles.logoContainer, logoStyle]}>
+              <Image
+                source={require('@/assets/images/roomix-logo.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </Animated.View>
+            
+            <Animated.View style={[styles.contentContainer, titleStyle]}>
+              <Text style={styles.appName}>Roomix</Text>
+              <Text style={styles.tagline}>Bağlan. Sohbet Et. Birlikte Çalış.</Text>
+            </Animated.View>
+            
+            <Animated.View style={[styles.featuresContainer, featureStyle]}>
+              <View style={styles.featureItem}>
+                <MessageSquare size={isMobile ? 30 : 28} color={theme.colors.primary[400]} />
+                <Text style={styles.featureText}>Özel konuşmalar için şifreli sohbet odaları</Text>
+              </View>
+              
+              <View style={styles.featureItem}>
+                <Clock size={isMobile ? 30 : 28} color={theme.colors.primary[400]} />
+                <Text style={styles.featureText}>Verimlilik zamanlayıcılı çalışma odaları</Text>
+              </View>
+              
+              <View style={styles.featureItem}>
+                <Users size={isMobile ? 30 : 28} color={theme.colors.primary[400]} />
+                <Text style={styles.featureText}>Sıralama tablolu ortak çalışma alanları</Text>
+              </View>
 
-          <View style={styles.featureItem}>
-            <Brain size={28} color={theme.colors.primary[400]} />
-            <Text style={styles.featureText}>Yapay zeka destekli eğitim koçu</Text>
-          </View>
-        </Animated.View>
-        
-        <Animated.View style={[styles.buttonContainer, buttonStyle]}>
-          <Button 
-            title="Giriş Yap" 
-            onPress={() => router.push('/(auth)/sign-in')} 
-            variant="primary"
-            size="large"
-            style={styles.button}
-          />
-          <Button 
-            title="Hesap Oluştur" 
-            onPress={() => router.push('/(auth)/sign-up')} 
-            variant="outline"
-            size="large"
-            style={styles.button}
-          />
-        </Animated.View>
-      </ScrollView>
+              <View style={styles.featureItem}>
+                <Brain size={isMobile ? 30 : 28} color={theme.colors.primary[400]} />
+                <Text style={styles.featureText}>Yapay zeka destekli eğitim koçu</Text>
+              </View>
+            </Animated.View>
+            
+            <Animated.View style={[styles.buttonContainer, buttonStyle]}>
+              <Button 
+                title="Giriş Yap" 
+                onPress={() => router.push('/(auth)/sign-in')} 
+                variant="primary"
+                size={isMobile ? "medium" : "large"}
+                style={styles.primaryButton}
+              />
+              <Button 
+                title="Hesap Oluştur" 
+                onPress={() => router.push('/(auth)/sign-up')} 
+                variant="outline"
+                size={isMobile ? "medium" : "large"}
+                style={styles.outlineButton}
+              />
+            </Animated.View>
+          </ScrollView>
+        </SafeAreaView>
+      </GradientBackground>
     </View>
   );
 }
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, screenWidth: number, screenHeight: number, isTablet: boolean, isMobile: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background.primary,
   },
+  safeArea: {
+    flex: 1,
+  },
   scrollContent: {
     flexGrow: 1,
-    paddingTop: Platform.OS === 'web' ? 40 : 60,
-    paddingBottom: 40,
+    paddingHorizontal: isMobile ? Spacing.lg : Spacing.xl,
+    paddingTop: isMobile ? Spacing.lg : Spacing.xl,
+    paddingBottom: Spacing.xl,
+    minHeight: screenHeight,
+    justifyContent: 'space-between',
   },
   logoContainer: {
     alignItems: 'center',
-    marginTop: Spacing.xxl,
-    marginBottom: Spacing.xl,
+    marginTop: isMobile ? Spacing.md : Spacing.lg,
+    marginBottom: isMobile ? Spacing.lg : Spacing.xl,
   },
   logo: {
+    width: isMobile ? Math.min(screenWidth * 0.4, 150) : Math.min(screenWidth * 0.3, 200),
+    height: isMobile ? Math.min(screenWidth * 0.4, 150) : Math.min(screenWidth * 0.3, 200),
     borderRadius: BorderRadius.round,
-    overflow: 'hidden',
   },
   contentContainer: {
     alignItems: 'center',
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.xxl,
+    marginBottom: isMobile ? Spacing.xl : Spacing.xxl,
   },
   appName: {
     fontFamily: 'Inter-Bold',
-    fontSize: 56,
+    fontSize: isMobile ? 42 : isTablet ? 64 : 56,
     color: colors.text.primary,
     marginBottom: Spacing.sm,
+    textAlign: 'center',
   },
   tagline: {
     fontFamily: 'Inter-Regular',
-    fontSize: FontSizes.xl,
+    fontSize: isMobile ? FontSizes.lg : FontSizes.xl,
     color: colors.text.secondary,
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: isMobile ? 20 : 24,
+    paddingHorizontal: Spacing.sm,
   },
   featuresContainer: {
-    paddingHorizontal: Spacing.xl,
-    marginBottom: Spacing.xxl,
+    flex: 1,
+    marginBottom: Spacing.xl,
+    width: '100%',
+    maxWidth: isTablet ? 600 : '100%',
+    alignSelf: 'center',
   },
   featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.lg,
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.lg,
+    marginBottom: isMobile ? Spacing.md : Spacing.lg,
+    paddingVertical: isMobile ? Spacing.md : Spacing.lg,
+    paddingHorizontal: isMobile ? Spacing.md : Spacing.lg,
     borderRadius: BorderRadius.lg,
-    backgroundColor: colors.background.card,
+    backgroundColor: colors.background.card + '80',
+    borderWidth: 1,
+    borderColor: colors.border.primary + '20',
   },
   featureText: {
     fontFamily: 'Inter-Regular',
-    fontSize: FontSizes.lg,
+    fontSize: isMobile ? FontSizes.md : FontSizes.lg,
     color: colors.text.primary,
-    marginLeft: Spacing.lg,
+    marginLeft: isMobile ? Spacing.md : Spacing.lg,
     flex: 1,
-    lineHeight: 22,
+    lineHeight: isMobile ? 18 : 22,
   },
   buttonContainer: {
-    paddingHorizontal: Spacing.xl,
-    gap: Spacing.lg,
-    marginBottom: Spacing.xl,
-  },
-  button: {
     width: '100%',
+    maxWidth: isTablet ? 400 : '100%',
+    alignSelf: 'center',
+    gap: Spacing.md,
+    paddingBottom: Platform.OS === 'ios' ? Spacing.lg : Spacing.md,
+  },
+  primaryButton: {
+    width: '100%',
+    minHeight: isMobile ? 48 : 56,
+    shadowColor: colors.primary[400],
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  outlineButton: {
+    width: '100%',
+    minHeight: isMobile ? 48 : 56,
+    borderWidth: 2,
+    borderColor: colors.primary[400],
+    backgroundColor: colors.background.card + '40',
   },
 });

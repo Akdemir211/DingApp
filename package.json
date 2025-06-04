@@ -29,7 +29,8 @@
     "react-native-web": "~0.19.6",
     "react-native-webview": "13.6.4",
     "uuid": "^11.1.0",
-    "expo-blur": "~12.9.2"
+    "expo-blur": "~12.9.2",
+    "expo-document-picker": "~11.10.1"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

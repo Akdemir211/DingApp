@@ -142,6 +142,7 @@ export const Spacing = {
   lg: 18,
   xl: 24,
   xxl: 36,
+  xxxl: 48,
 };
 
 export const BorderRadius = {

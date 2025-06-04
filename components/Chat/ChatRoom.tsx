@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, StatusBar, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, FontSizes, BorderRadius, Shadows } from '@/constants/Theme';
 import { Card } from '@/components/UI/Card';
@@ -11,12 +11,14 @@ import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useTabBar } from '@/context/TabBarContext';
 import { router } from 'expo-router';
-import { MessageSquare, Clock, Users, ArrowLeft, Send, Hash, Shield } from 'lucide-react-native';
+import { MessageSquare, Clock, Users, ArrowLeft, Send, Hash, Shield, Paperclip, Camera, File, X } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import { useChat } from '@/hooks/useChat';
 import { Database } from '@/types/supabase';
 import { supabase } from '@/lib/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 
 type Message = Database['public']['Tables']['chat_messages']['Row'];
 type Room = Database['public']['Tables']['chat_rooms']['Row'];
@@ -37,6 +39,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
   const [room, setRoom] = useState<Room | null>(null);
   const [memberCount, setMemberCount] = useState(0);
   const [users, setUsers] = useState<{[key: string]: {name: string, photoUrl: string | null}}>({}); 
+  const [attachmentMenuVisible, setAttachmentMenuVisible] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState<{uri: string, type: 'image' | 'file', name: string} | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -171,7 +175,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
     try {
       const data = await fetchMessages(roomId);
       if (data && Array.isArray(data)) {
-        setMessages(data);
+        setMessages(data as Message[]);
       } else {
         console.log('No messages or invalid data format');
         setMessages([]);
@@ -243,14 +247,135 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
     }
   };
 
+  const pickImage = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('İzin Gerekli', 'Fotoğraf seçmek için galeri erişim izni gerekli');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        setSelectedMedia({
+          uri: asset.uri,
+          type: 'image',
+          name: asset.fileName || `image_${Date.now()}.jpg`
+        });
+        setAttachmentMenuVisible(false);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Hata', 'Fotoğraf seçilirken bir hata oluştu');
+    }
+  };
+
+  const takePhoto = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('İzin Gerekli', 'Fotoğraf çekmek için kamera erişim izni gerekli');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        setSelectedMedia({
+          uri: asset.uri,
+          type: 'image',
+          name: asset.fileName || `photo_${Date.now()}.jpg`
+        });
+        setAttachmentMenuVisible(false);
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      Alert.alert('Hata', 'Fotoğraf çekilirken bir hata oluştu');
+    }
+  };
+
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        setSelectedMedia({
+          uri: asset.uri,
+          type: 'file',
+          name: asset.name
+        });
+        setAttachmentMenuVisible(false);
+      }
+    } catch (error) {
+      console.error('Error picking document:', error);
+      Alert.alert('Hata', 'Dosya seçilirken bir hata oluştu');
+    }
+  };
+
+  const removeSelectedMedia = () => {
+    setSelectedMedia(null);
+  };
+
+  const uploadMedia = async (mediaUri: string, fileName: string): Promise<string> => {
+    try {
+      console.log('Processing media...', fileName);
+      
+      // Basit yaklaşım: FileReader kullanarak base64'e çevir
+      const response = await fetch(mediaUri);
+      const blob = await response.blob();
+      
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64Data = reader.result as string;
+          console.log('Media converted to base64, size:', Math.round(base64Data.length / 1024), 'KB');
+          resolve(base64Data);
+        };
+        reader.onerror = () => {
+          console.log('FileReader failed, using original URI');
+          resolve(mediaUri);
+        };
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error('Error processing media:', error);
+      // Fallback: Orijinal URI'yi kullan
+      return mediaUri;
+    }
+  };
+
   const handleSend = async () => {
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() && !selectedMedia) return;
     
     const tempMessage = newMessage.trim();
+    let mediaUrl = null;
     
     try {
       setLoading(true);
+      
+      // Eğer medya seçilmişse önce yükle
+      if (selectedMedia) {
+        mediaUrl = await uploadMedia(selectedMedia.uri, selectedMedia.name);
+      }
+      
       setNewMessage(''); // Clear input immediately for better UX
+      setSelectedMedia(null); // Clear selected media
       
       // Optimistically add message locally first
       const tempId = `temp_${Date.now()}`;
@@ -258,15 +383,24 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
         id: tempId,
         room_id: roomId,
         user_id: user?.id || '',
-        content: tempMessage,
+        content: selectedMedia ? (selectedMedia.type === 'image' ? '[Fotoğraf]' : `[Dosya: ${selectedMedia.name}]`) : tempMessage,
         created_at: new Date().toISOString(),
       };
       
       setMessages(prev => [...prev, optimisticMessage]);
       setTimeout(() => scrollToBottom(), 50);
       
-      // Send to server
-      await sendMessage(roomId, tempMessage);
+      // Send to server - mesaj içeriğini uygun şekilde belirle
+      const messageContent = selectedMedia 
+        ? JSON.stringify({ 
+            type: selectedMedia.type, 
+            url: mediaUrl, 
+            name: selectedMedia.name,
+            text: tempMessage || '' 
+          }) 
+        : tempMessage;
+      
+      await sendMessage(roomId, messageContent);
       
       // Remove optimistic message after server confirms
       setTimeout(() => {
@@ -277,8 +411,13 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
       console.error('Error sending message:', error);
       // Restore message in input on error
       setNewMessage(tempMessage);
+      if (selectedMedia) {
+        // Restore selected media on error
+        // Note: We keep the selectedMedia state as is for retry
+      }
       // Remove optimistic message on error
       setMessages(prev => prev.filter(msg => !msg.id.startsWith('temp_')));
+      Alert.alert('Hata', 'Mesaj gönderilirken bir hata oluştu');
     } finally {
       setLoading(false);
     }
@@ -297,44 +436,106 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
     showAvatar: boolean;
     userInfo: any;
   }) => {
+    // Mesajın medya içeriği olup olmadığını kontrol et
+    let messageData = null;
+    let isMediaMessage = false;
+    
+    try {
+      messageData = JSON.parse(message.content);
+      isMediaMessage = messageData && (messageData.type === 'image' || messageData.type === 'file');
+    } catch {
+      // JSON parse edilemezse normal text mesajı
+      isMediaMessage = false;
+    }
+
     return (
       <View
         style={[
           styles.messageWrapper,
-          isOwnMessage ? styles.ownMessageWrapper : null
+          isOwnMessage && styles.ownMessageWrapper
         ]}
       >
         {!isOwnMessage && showAvatar && (
           <ProfilePhoto 
             uri={userInfo?.photoUrl}
-            size={36}
+            size={28}
             style={styles.avatar}
           />
         )}
-        
         <View style={[
           styles.messageContainer,
           !isOwnMessage && !showAvatar && styles.continuedMessage
         ]}>
           {isOwnMessage ? (
-            <View style={[styles.messageBubble, styles.ownMessage, { backgroundColor: theme.colors.primary[500] }]}>
-              <Text style={[styles.messageText, { color: theme.colors.text.primary }]}>
-                {message.content}
-              </Text>
-              <Text style={[styles.messageTime, { color: theme.colors.text.primary + '70' }]}>
-                {formatTime(message.created_at)}
-              </Text>
-            </View>
-          ) : (
-            <View style={[styles.messageBubble, styles.otherMessage, { backgroundColor: theme.colors.background.elevated }]}>
-              {showAvatar && (
-                <Text style={[styles.messageSender, { color: theme.colors.primary[400] }]}>
-                  {userInfo?.name}
+            <LinearGradient
+              colors={theme.colors.gradients.primary}
+              style={[styles.messageBubble, styles.ownMessage]}
+            >
+              {isMediaMessage && messageData ? (
+                <View>
+                  {messageData.type === 'image' ? (
+                    <Image 
+                      source={{ uri: messageData.url }} 
+                      style={styles.messageImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.fileContainer}>
+                      <File size={24} color={theme.colors.text.primary} />
+                      <Text style={[styles.fileName, { color: theme.colors.text.primary }]}>
+                        {messageData.name}
+                      </Text>
+                    </View>
+                  )}
+                  {messageData.text && (
+                    <Text style={[styles.messageText, { color: theme.colors.text.primary }]}>
+                      {messageData.text}
+                    </Text>
+                  )}
+                </View>
+              ) : (
+                <Text style={[styles.messageText, { color: theme.colors.text.primary }]}>
+                  {message.content}
                 </Text>
               )}
-              <Text style={[styles.messageText, { color: theme.colors.text.primary }]}>
-                {message.content}
+              <Text style={[styles.messageTime, { color: theme.colors.text.primary + '80' }]}>
+                {formatTime(message.created_at)}
               </Text>
+            </LinearGradient>
+          ) : (
+            <View style={[styles.messageBubble, styles.otherMessage, { backgroundColor: theme.colors.background.card }]}>
+              {showAvatar && (
+                <Text style={[styles.messageSender, { color: theme.colors.primary[400] }]}>
+                  {userInfo?.name || 'Kullanıcı'}
+                </Text>
+              )}
+              {isMediaMessage && messageData ? (
+                <View>
+                  {messageData.type === 'image' ? (
+                    <Image 
+                      source={{ uri: messageData.url }} 
+                      style={styles.messageImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.fileContainer}>
+                      <File size={24} color={theme.colors.text.primary} />
+                      <Text style={[styles.fileName, { color: theme.colors.text.primary }]}>
+                        {messageData.name}
+                      </Text>
+                    </View>
+                  )}
+                  {messageData.text && (
+                    <Text style={[styles.messageText, { color: theme.colors.text.primary }]}>
+                      {messageData.text}
+                    </Text>
+                  )}
+                </View>
+              ) : (
+                <Text style={[styles.messageText, { color: theme.colors.text.primary }]}>
+                  {message.content}
+                </Text>
+              )}
               <Text style={[styles.messageTime, { color: theme.colors.text.secondary }]}>
                 {formatTime(message.created_at)}
               </Text>
@@ -346,127 +547,208 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
   };
 
   return (
-    <View style={[styles.container, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }]}>
+    <View style={styles.container}>
       <StatusBar backgroundColor={theme.colors.background.darker} barStyle="light-content" />
-      <View style={[styles.container, { backgroundColor: theme.colors.background.darker }]}>
-        {/* Minimal Header */}
-        <View 
-          style={[styles.header, { 
-            backgroundColor: theme.colors.background.darker,
-            borderBottomColor: theme.colors.border.primary
-          }]}
-        >
-          <TouchableOpacity 
-            onPress={onClose} 
-            style={[styles.backButton, { backgroundColor: theme.colors.background.elevated }]}
-          >
-            <ArrowLeft size={20} color={theme.colors.text.primary} />
-          </TouchableOpacity>
-          
-          <View style={styles.headerCenter}>
-            <View style={styles.roomAvatar}>
-              {room?.is_private ? (
-                <Shield size={18} color={theme.colors.text.primary} />
-              ) : (
-                <Hash size={18} color={theme.colors.success} />
-              )}
-            </View>
-            <View style={styles.headerInfo}>
-              <Text style={[styles.roomTitle, { color: theme.colors.text.primary }]}>
-                {room?.name || 'Sohbet Odası'}
-              </Text>
-              <Text style={[styles.memberCount, { color: theme.colors.text.secondary }]}>
-                {memberCount} üye
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Messages Area */}
-        <View style={[styles.messagesArea, { backgroundColor: theme.colors.background.dark }]}>
-          <ScrollView
-            ref={scrollViewRef}
-            style={styles.messagesContainer}
-            contentContainerStyle={styles.messagesContent}
-            onContentSizeChange={() => scrollToBottom()}
-            showsVerticalScrollIndicator={false}
-          >
-            {messages.map((message, index) => {
-              const isOwnMessage = message.user_id === user?.id;
-              const showAvatar = !isOwnMessage && (!messages[index - 1] || messages[index - 1].user_id !== message.user_id);
-              const userInfo = users[message.user_id];
-              
-              return (
-                <MessageBubble
-                  key={message.id}
-                  message={message}
-                  isOwnMessage={isOwnMessage}
-                  showAvatar={showAvatar}
-                  userInfo={userInfo}
-                />
-              );
-            })}
-            
-            {messages.length === 0 && (
-              <View style={styles.emptyContainer}>
-                <MessageSquare size={40} color={theme.colors.text.secondary + '60'} />
-                <Text style={[styles.emptyTitle, { color: theme.colors.text.secondary }]}>
-                  Henüz mesaj yok
-                </Text>
-                <Text style={[styles.emptyDescription, { color: theme.colors.text.secondary + '80' }]}>
-                  İlk mesajı göndererek sohbeti başlatın
-                </Text>
-              </View>
-            )}
-          </ScrollView>
-        </View>
-
-        {/* Input Area */}
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-          style={[styles.inputWrapper, { backgroundColor: theme.colors.background.darker }]}
-        >
+      <GradientBackground colors={[theme.colors.background.dark, theme.colors.background.darker, theme.colors.darkGray[800]]}>
+        <SafeAreaView style={styles.safeArea}>
+          {/* Header */}
           <View 
-            style={[styles.inputContainer, { 
-              backgroundColor: theme.colors.background.darker,
-              borderTopColor: theme.colors.border.primary 
+            style={[styles.header, { 
+              backgroundColor: theme.colors.background.darker + 'DD',
+              borderBottomColor: theme.colors.border.primary + '40'
             }]}
           >
-            <View style={[styles.inputRow, { backgroundColor: theme.colors.background.elevated }]}>
-              <TextInput
-                style={[styles.input, { 
-                  color: theme.colors.text.primary
-                }]}
-                value={newMessage}
-                onChangeText={setNewMessage}
-                placeholder="Mesajınızı yazın..."
-                placeholderTextColor={theme.colors.text.secondary}
-                multiline
-                maxLength={500}
-              />
-              <TouchableOpacity
-                style={[
-                  styles.sendButton,
-                  (!newMessage.trim() || loading) && styles.sendButtonDisabled
-                ]}
-                onPress={handleSend}
-                disabled={!newMessage.trim() || loading}
-              >
-                <LinearGradient
-                  colors={(!newMessage.trim() || loading) ? 
-                    [theme.colors.darkGray[600], theme.colors.darkGray[700]] : 
-                    [theme.colors.primary[500], theme.colors.primary[600]]
-                  }
-                  style={styles.sendButtonGradient}
-                >
-                  <Send size={16} color={theme.colors.text.primary} />
-                </LinearGradient>
-              </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={onClose} 
+              style={[styles.backButton, { backgroundColor: theme.colors.background.elevated }]}
+            >
+              <ArrowLeft size={20} color={theme.colors.text.primary} />
+            </TouchableOpacity>
+            
+            <View style={styles.headerCenter}>
+              <View style={[styles.roomIcon, { backgroundColor: theme.colors.background.elevated }]}>
+                {room?.is_private ? (
+                  <Shield size={16} color={theme.colors.primary[400]} />
+                ) : (
+                  <Hash size={16} color={theme.colors.success} />
+                )}
+              </View>
+              <View style={styles.headerInfo}>
+                <Text style={[styles.roomTitle, { color: theme.colors.text.primary }]} numberOfLines={1}>
+                  {room?.name || 'Sohbet Odası'}
+                </Text>
+                <Text style={[styles.memberCount, { color: theme.colors.text.secondary }]}>
+                  {memberCount} üye
+                </Text>
+              </View>
             </View>
           </View>
-        </KeyboardAvoidingView>
-      </View>
+
+          {/* Messages Area */}
+          <View style={styles.messagesArea}>
+            <ScrollView
+              ref={scrollViewRef}
+              style={styles.messagesContainer}
+              contentContainerStyle={[
+                styles.messagesContent,
+                messages.length === 0 && { flex: 1 }
+              ]}
+              onContentSizeChange={() => scrollToBottom()}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {messages.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <MessageSquare size={40} color={theme.colors.text.secondary + '60'} />
+                  <Text style={[styles.emptyTitle, { color: theme.colors.text.secondary }]}>
+                    Henüz mesaj yok
+                  </Text>
+                  <Text style={[styles.emptyDescription, { color: theme.colors.text.secondary + '80' }]}>
+                    İlk mesajı göndererek sohbeti başlatın
+                  </Text>
+                </View>
+              ) : (
+                messages.map((message, index) => {
+                  const isOwnMessage = message.user_id === user?.id;
+                  const showAvatar = !isOwnMessage && (!messages[index - 1] || messages[index - 1].user_id !== message.user_id);
+                  const userInfo = users[message.user_id];
+                  
+                  return (
+                    <MessageBubble
+                      key={message.id}
+                      message={message}
+                      isOwnMessage={isOwnMessage}
+                      showAvatar={showAvatar}
+                      userInfo={userInfo}
+                    />
+                  );
+                })
+              )}
+            </ScrollView>
+          </View>
+
+          {/* Input Area */}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+            style={{ flexShrink: 0 }}
+          >
+            {/* Seçilen medya önizlemesi */}
+            {selectedMedia && (
+              <View style={[styles.mediaPreview, { backgroundColor: theme.colors.background.elevated }]}>
+                <View style={[styles.mediaPreviewContent, { backgroundColor: theme.colors.background.card }]}>
+                  {selectedMedia.type === 'image' ? (
+                    <Image source={{ uri: selectedMedia.uri }} style={styles.previewImage} />
+                  ) : (
+                    <View style={styles.previewFile}>
+                      <File size={32} color={theme.colors.text.primary} />
+                      <Text style={[styles.previewFileName, { color: theme.colors.text.primary }]} numberOfLines={1}>
+                        {selectedMedia.name}
+                      </Text>
+                    </View>
+                  )}
+                  <TouchableOpacity 
+                    style={[styles.removeMediaButton, { backgroundColor: theme.colors.error }]}
+                    onPress={removeSelectedMedia}
+                  >
+                    <X size={16} color={theme.colors.text.primary} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Attachment Menu */}
+            {attachmentMenuVisible && (
+              <View style={[styles.attachmentMenu, { backgroundColor: theme.colors.background.elevated }]}>
+                <TouchableOpacity 
+                  style={[styles.attachmentOption, { backgroundColor: theme.colors.background.card }]}
+                  onPress={pickImage}
+                >
+                  <View style={[styles.attachmentIcon, { backgroundColor: theme.colors.primary[500] + '20' }]}>
+                    <Camera size={20} color={theme.colors.primary[400]} />
+                  </View>
+                  <Text style={[styles.attachmentText, { color: theme.colors.text.primary }]}>Galeri</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.attachmentOption, { backgroundColor: theme.colors.background.card }]}
+                  onPress={takePhoto}
+                >
+                  <View style={[styles.attachmentIcon, { backgroundColor: theme.colors.success + '20' }]}>
+                    <Camera size={20} color={theme.colors.success} />
+                  </View>
+                  <Text style={[styles.attachmentText, { color: theme.colors.text.primary }]}>Kamera</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.attachmentOption, { backgroundColor: theme.colors.background.card }]}
+                  onPress={pickDocument}
+                >
+                  <View style={[styles.attachmentIcon, { backgroundColor: theme.colors.warning + '20' }]}>
+                    <File size={20} color={theme.colors.warning} />
+                  </View>
+                  <Text style={[styles.attachmentText, { color: theme.colors.text.primary }]}>Dosya</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <View 
+              style={[styles.inputContainer, { 
+                backgroundColor: theme.colors.background.elevated,
+                borderTopColor: theme.colors.border.primary + '40'
+              }]}
+            >
+              <View style={[styles.inputRow, { backgroundColor: theme.colors.background.card }]}>
+                <TouchableOpacity
+                  style={styles.attachmentButton}
+                  onPress={() => setAttachmentMenuVisible(!attachmentMenuVisible)}
+                >
+                  <Paperclip size={20} color={theme.colors.text.secondary} />
+                </TouchableOpacity>
+
+                <TextInput
+                  style={[styles.input, { 
+                    color: theme.colors.text.primary,
+                    borderColor: theme.colors.border.primary + '20'
+                  }]}
+                  value={newMessage}
+                  onChangeText={setNewMessage}
+                  placeholder={selectedMedia ? "Açıklama ekle (opsiyonel)..." : "Mesajınızı yazın..."}
+                  placeholderTextColor={theme.colors.text.secondary + '80'}
+                  multiline
+                  maxLength={500}
+                  returnKeyType="send"
+                  onSubmitEditing={() => {
+                    if ((newMessage.trim() || selectedMedia) && !loading) {
+                      handleSend();
+                    }
+                  }}
+                  blurOnSubmit={false}
+                />
+                <TouchableOpacity
+                  style={[
+                    styles.sendButton,
+                    ((!newMessage.trim() && !selectedMedia) || loading) && styles.sendButtonDisabled
+                  ]}
+                  onPress={handleSend}
+                  disabled={(!newMessage.trim() && !selectedMedia) || loading}
+                  activeOpacity={0.7}
+                >
+                  <LinearGradient
+                    colors={((!newMessage.trim() && !selectedMedia) || loading) ? 
+                      [theme.colors.darkGray[600], theme.colors.darkGray[700]] : 
+                      theme.colors.gradients.primary
+                    }
+                    style={styles.sendButtonGradient}
+                  >
+                    <Send size={16} color={theme.colors.text.primary} />
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </GradientBackground>
     </View>
   );
 };
@@ -502,7 +784,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: Spacing.xl,
   },
-  roomAvatar: {
+  roomIcon: {
     width: 42,
     height: 42,
     borderRadius: BorderRadius.round,
@@ -535,7 +817,7 @@ const styles = StyleSheet.create({
   },
   messageWrapper: {
     marginVertical: Spacing.xs,
-    maxWidth: '85%',
+    maxWidth: '60%',
     flexDirection: 'row',
     alignItems: 'flex-end',
   },
@@ -549,28 +831,22 @@ const styles = StyleSheet.create({
   },
   messageContainer: {
     flex: 1,
-    alignItems: 'flex-start',
   },
   continuedMessage: {
-    marginLeft: 40,
-    alignItems: 'flex-start',
+    marginLeft: 32,
   },
   messageBubble: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.sm,
-    borderRadius: 18,
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
     marginBottom: Spacing.xs,
-    alignSelf: 'flex-start',
-    flexShrink: 1,
-    ...Shadows.small,
+    maxWidth: '100%',
   },
   ownMessage: {
-    borderBottomRightRadius: 6,
+    borderBottomRightRadius: BorderRadius.xs,
     marginLeft: Spacing.xs,
-    alignSelf: 'flex-end',
   },
   otherMessage: {
-    borderBottomLeftRadius: 6,
+    borderBottomLeftRadius: BorderRadius.xs,
     marginRight: Spacing.xs,
   },
   messageSender: {
@@ -606,18 +882,25 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.sm,
     textAlign: 'center',
   },
-  inputWrapper: {
-    borderTopWidth: 1,
-  },
   inputContainer: {
-    padding: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    gap: Spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
     borderTopWidth: 1,
   },
   inputRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'flex-end',
-    borderRadius: 20,
-    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     gap: Spacing.sm,
   },
@@ -627,21 +910,114 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     maxHeight: 80,
     minHeight: 36,
-    paddingVertical: Spacing.xs,
+    paddingVertical: Platform.OS === 'ios' ? Spacing.xs : 6,
     paddingHorizontal: Spacing.xs,
-    textAlignVertical: 'center',
+    textAlignVertical: 'top',
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
   },
   sendButton: {
     borderRadius: BorderRadius.round,
     overflow: 'hidden',
+    alignSelf: 'flex-end',
+    ...Shadows.small,
   },
   sendButtonGradient: {
-    width: 33,
-    height: 33,
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
   },
   sendButtonDisabled: {
     opacity: 1,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  messageImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: BorderRadius.md,
+  },
+  fileContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.xs,
+    borderRadius: BorderRadius.md,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  fileName: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSizes.sm,
+    marginLeft: Spacing.xs,
+  },
+  mediaPreview: {
+    padding: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  mediaPreviewContent: {
+    position: 'relative',
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    maxHeight: 120,
+  },
+  previewImage: {
+    width: '100%',
+    height: 100,
+    borderRadius: BorderRadius.lg,
+  },
+  previewFile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+  },
+  previewFileName: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSizes.sm,
+    marginLeft: Spacing.sm,
+    flex: 1,
+  },
+  removeMediaButton: {
+    position: 'absolute',
+    top: Spacing.xs,
+    right: Spacing.xs,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  attachmentMenu: {
+    flexDirection: 'row',
+    padding: Spacing.md,
+    justifyContent: 'space-around',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  attachmentOption: {
+    alignItems: 'center',
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    minWidth: 80,
+  },
+  attachmentIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.round,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.xs,
+  },
+  attachmentText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: FontSizes.xs,
+    textAlign: 'center',
+  },
+  attachmentButton: {
+    padding: Spacing.xs,
+    alignSelf: 'flex-start',
+    marginTop: Spacing.xs,
   },
 });

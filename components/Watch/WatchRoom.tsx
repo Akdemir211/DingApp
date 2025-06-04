@@ -65,40 +65,294 @@ const VideoPlayer = ({
   onStateChange: (state: VideoState) => void;
   theme: any;
 }) => {
-  const embedUrl = getEmbedUrl(videoUrl);
+  const embedUrl = getEmbedUrl(videoUrl, isCreator);
   const webViewRef = useRef<WebView>(null);
-  const [localPlaying, setLocalPlaying] = useState(false);
+  const [localPlaying, setLocalPlaying] = useState(videoState.is_playing);
+  const [currentTime, setCurrentTime] = useState(videoState.playback_time);
+  const [playerReady, setPlayerReady] = useState(false);
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
+  // WebView'a komut gönderme fonksiyonu
+  const sendPlayerCommand = (command: string, args?: any[]) => {
+    if (webViewRef.current && playerReady) {
+      const argsStr = args ? `, ${args.join(', ')}` : '';
+      webViewRef.current.injectJavaScript(`
+        try {
+          if (window.${command}) {
+            window.${command}(${argsStr});
+            console.log('Command executed: ${command}');
+          } else {
+            console.log('Command not available: ${command}');
+          }
+        } catch (error) {
+          console.error('Command error:', error);
+        }
+        true;
+      `);
+    }
+  };
+
   const injectedJavaScript = `
     let player;
+    let isPlayerReady = false;
+    let pendingCommands = [];
+    const isCreator = ${isCreator};
     
     function onYouTubeIframeAPIReady() {
-      player = new YT.Player('player', {
-        events: {
-          'onStateChange': onPlayerStateChange
+      const iframe = document.querySelector('iframe');
+      if (iframe) {
+        player = new YT.Player(iframe, {
+          events: {
+            'onReady': onPlayerReady,
+            'onStateChange': onPlayerStateChange
+          }
+        });
+      }
+    }
+
+    function onPlayerReady(event) {
+      isPlayerReady = true;
+      console.log('YouTube Player Ready - isCreator:', isCreator);
+      
+      // İzleyiciler için kontrolleri tamamen devre dışı bırak
+      if (!isCreator) {
+        disableViewerControls();
+      }
+      
+      // Bekleyen komutları çalıştır
+      pendingCommands.forEach(cmd => {
+        if (player && player[cmd.method]) {
+          player[cmd.method].apply(player, cmd.args);
         }
       });
+      pendingCommands = [];
+      
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'playerReady'
+      }));
+    }
+
+    function disableViewerControls() {
+      // CSS ile kontrolleri gizle
+      const style = document.createElement('style');
+      style.textContent = \`
+        /* YouTube kontrol elementlerini tamamen gizle */
+        .ytp-chrome-bottom,
+        .ytp-chrome-top,
+        .ytp-show-cards-title,
+        .ytp-pause-overlay,
+        .ytp-player-content,
+        .ytp-gradient-bottom,
+        .ytp-gradient-top,
+        .ytp-chrome-controls,
+        .ytp-control-bar,
+        .ytp-progress-bar-container,
+        .ytp-time-display,
+        .ytp-volume-slider,
+        .ytp-mute-button,
+        .ytp-fullscreen-button,
+        .ytp-settings-button,
+        .ytp-play-button,
+        .ytp-pause-button,
+        .ytp-prev-button,
+        .ytp-next-button,
+        .ytp-big-mode .ytp-large-play-button,
+        .ytp-large-play-button,
+        .ytp-button,
+        .ytp-youtube-button,
+        .ytp-watermark,
+        .ytp-contextmenu,
+        .ytp-popup,
+        .ytp-tooltip,
+        .html5-endscreen,
+        .html5-player-chrome {
+          display: none !important;
+          visibility: hidden !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
+        }
+        
+        /* Video container'a overlay ekle */
+        .html5-video-container {
+          pointer-events: none !important;
+          position: relative;
+        }
+        
+        /* Video player'ın kendisini de kontrol edilemez yap */
+        .html5-main-video {
+          pointer-events: none !important;
+        }
+        
+        /* İframe'i kontrol edilemez yap */
+        iframe {
+          pointer-events: none !important;
+        }
+        
+        /* Tüm YouTube player elementlerini engelle */
+        #movie_player,
+        .html5-video-player {
+          pointer-events: none !important;
+        }
+        
+        /* Mouse cursor'u değiştir - video üzerinde normal ok */
+        .html5-video-container,
+        .html5-main-video,
+        iframe,
+        #movie_player {
+          cursor: default !important;
+        }
+        
+        /* Viewer overlay - video üzerinde şeffaf engelleme katmanı */
+        .viewer-block-overlay {
+          position: absolute !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+          z-index: 999999 !important;
+          background: transparent !important;
+          pointer-events: auto !important;
+          cursor: default !important;
+        }
+      \`;
+      document.head.appendChild(style);
+      
+      // Video üzerine şeffaf engelleme katmanı ekle
+      setTimeout(() => {
+        const videoContainer = document.querySelector('#movie_player') || 
+                              document.querySelector('.html5-video-player') || 
+                              document.querySelector('.html5-video-container') ||
+                              document.body;
+        
+        if (videoContainer) {
+          const overlay = document.createElement('div');
+          overlay.className = 'viewer-block-overlay';
+          overlay.style.cssText = \`
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            z-index: 999999 !important;
+            background: transparent !important;
+            pointer-events: auto !important;
+            cursor: default !important;
+          \`;
+          
+          // Overlay'e tıklandığında hiçbir şey yapma
+          overlay.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            console.log('🚫 Viewer click blocked by overlay');
+            return false;
+          }, true);
+          
+          overlay.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            return false;
+          }, true);
+          
+          overlay.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            return false;
+          }, true);
+          
+          if (videoContainer.style) {
+            videoContainer.style.position = 'relative';
+          }
+          videoContainer.appendChild(overlay);
+          console.log('🔒 Viewer blocking overlay added');
+        }
+      }, 1000);
+      
+      // Tüm event'leri engelle - daha agresif
+      const blockEvent = function(e) {
+        if (!isCreator) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          return false;
+        }
+      };
+      
+      // Tüm mouse event'lerini engelle
+      ['click', 'mousedown', 'mouseup', 'mousemove', 'dblclick', 'contextmenu'].forEach(eventType => {
+        document.addEventListener(eventType, blockEvent, true);
+      });
+      
+      // Tüm touch event'lerini engelle
+      ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(eventType => {
+        document.addEventListener(eventType, blockEvent, true);
+      });
+      
+      // Keyboard event'leri engelle
+      ['keydown', 'keyup', 'keypress'].forEach(eventType => {
+        document.addEventListener(eventType, blockEvent, true);
+      });
+      
+      // Focus event'lerini engelle
+      ['focus', 'blur', 'focusin', 'focusout'].forEach(eventType => {
+        document.addEventListener(eventType, blockEvent, true);
+      });
+      
+      console.log('🔒 All viewer controls completely disabled');
     }
 
     function onPlayerStateChange(event) {
+      const currentTime = player ? player.getCurrentTime() : 0;
+      console.log('Player state changed:', event.data, 'time:', currentTime, 'isCreator:', isCreator);
+      
+      // İzleyiciler state değişikliklerini yapamazsa, sadece oda sahibi değişiklik yapabilir
+      if (!isCreator) {
+        // İzleyici bir değişiklik yapmaya çalışıyorsa geri al
+        console.log('🚫 Viewer attempted state change - blocking');
+        return;
+      }
+      
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'stateChange',
         data: {
           state: event.data,
-          time: player.getCurrentTime()
+          time: currentTime
         }
       }));
     }
 
-    var tag = document.createElement('script');
-    tag.src = "https://www.youtube.com/iframe_api";
-    var firstScriptTag = document.getElementsByTagName('script')[0];
-    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    function executeCommand(method, args = []) {
+      if (isPlayerReady && player && player[method]) {
+        console.log('Executing command:', method, args);
+        player[method].apply(player, args);
+      } else {
+        console.log('Queueing command:', method, args);
+        pendingCommands.push({ method, args });
+      }
+    }
+
+    // Global fonksiyonlar - sadece programmatic kullanım için
+    window.playVideo = () => executeCommand('playVideo');
+    window.pauseVideo = () => executeCommand('pauseVideo');
+    window.seekTo = (seconds) => executeCommand('seekTo', [seconds, true]);
+    window.getPlayerState = () => player ? player.getPlayerState() : -1;
+    window.getCurrentTime = () => player ? player.getCurrentTime() : 0;
+
+    // YouTube API'yi yükle
+    if (!window.YT) {
+      var tag = document.createElement('script');
+      tag.src = "https://www.youtube.com/iframe_api";
+      var firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    } else {
+      onYouTubeIframeAPIReady();
+    }
 
     true;
   `;
@@ -106,49 +360,72 @@ const VideoPlayer = ({
   const handleMessage = (event: any) => {
     try {
       const message = JSON.parse(event.nativeEvent.data);
-      if (message.type === 'stateChange' && isCreator) {
-        const isPlaying = message.data.state === 1;
+      
+      if (message.type === 'playerReady') {
+        console.log('✅ YouTube Player Ready - Syncing video state');
+        setPlayerReady(true);
+        // Player hazır olduğunda mevcut durumu sync et
+        setTimeout(() => syncVideoState(), 500);
+      }
+      
+      if (message.type === 'stateChange') {
+        const isPlaying = message.data.state === 1; // 1 = playing, 2 = paused
+        const currentTime = message.data.time;
+        
+        console.log('🎮 Player state change:', { isPlaying, currentTime, isCreator });
+        
         setLocalPlaying(isPlaying);
-        onStateChange({
-          is_playing: isPlaying,
-          playback_time: message.data.time
-        });
+        setCurrentTime(currentTime);
+        
+        // Sadece oda sahibi değişiklikleri veritabanına kaydet
+        if (isCreator) {
+          console.log('👑 Creator updating database state');
+          onStateChange({
+            is_playing: isPlaying,
+            playback_time: currentTime
+          });
+        }
       }
     } catch (error) {
       console.error('Error handling player message:', error);
     }
   };
 
-  const handlePlayPause = () => {
-    scale.value = withSequence(
-      withSpring(0.95),
-      withSpring(1)
-    );
-    
-    if (isCreator && webViewRef.current) {
-      const command = localPlaying ? 'pauseVideo' : 'playVideo';
-      webViewRef.current.injectJavaScript(`
-        if (player && player.${command}) {
-          player.${command}();
-        }
-        true;
-      `);
+  const syncVideoState = () => {
+    if (!webViewRef.current || !playerReady) {
+      console.log('⏳ Cannot sync - player not ready');
+      return;
     }
+
+    console.log('🔄 Syncing video state:', videoState);
+
+    // Önce zamanı sync et
+    if (videoState.playback_time > 0) {
+      sendPlayerCommand('seekTo', [videoState.playback_time]);
+    }
+    
+    // Sonra play/pause durumunu sync et
+    setTimeout(() => {
+      if (videoState.is_playing) {
+        sendPlayerCommand('playVideo');
+      } else {
+        sendPlayerCommand('pauseVideo');
+      }
+    }, 200);
   };
 
+  // Video state değişikliklerini dinle (diğer kullanıcılar için)
   useEffect(() => {
-    if (webViewRef.current && !isCreator) {
-      const command = videoState.is_playing ? 'playVideo' : 'pauseVideo';
-      webViewRef.current.injectJavaScript(`
-        if (player && player.${command}) {
-          player.${command}();
-          player.seekTo(${videoState.playback_time}, true);
-        }
-        true;
-      `);
-      setLocalPlaying(videoState.is_playing);
+    console.log('📺 Video state changed:', videoState, 'isCreator:', isCreator);
+    
+    setLocalPlaying(videoState.is_playing);
+    setCurrentTime(videoState.playback_time);
+    
+    if (!isCreator && playerReady) {
+      // Küçük bir gecikme ile sync et
+      setTimeout(syncVideoState, 200);
     }
-  }, [videoState]);
+  }, [videoState, isCreator, playerReady]);
 
   return (
     <Animated.View style={[styles.videoContainer, animatedStyle]}>
@@ -159,53 +436,85 @@ const VideoPlayer = ({
           </View>
           <View style={styles.videoInfo}>
             <Text style={[styles.videoTitle, { color: theme.colors.text.primary }]} numberOfLines={1}>
-              Video İzleme
+              Video İzleme {isCreator && "(Kontrol)"}
             </Text>
             <View style={styles.videoStatus}>
               <Eye size={14} color={localPlaying ? theme.colors.success : theme.colors.text.secondary} />
               <Text style={[styles.statusText, { color: localPlaying ? theme.colors.success : theme.colors.text.secondary }]}>
                 {localPlaying ? 'Oynatılıyor' : 'Duraklatıldı'}
               </Text>
+              {currentTime > 0 && (
+                <Text style={[styles.timeText, { color: theme.colors.text.secondary, marginLeft: 8 }]}>
+                  {Math.floor(currentTime / 60)}:{String(Math.floor(currentTime % 60)).padStart(2, '0')}
+                </Text>
+              )}
             </View>
           </View>
-          {isCreator && (
-            <TouchableOpacity 
-              style={styles.playButton}
-              onPress={handlePlayPause}
-            >
-              <LinearGradient
-                colors={theme.colors.gradients.primary}
-                style={styles.playButtonGradient}
-              >
-                {localPlaying ? (
-                  <Pause size={16} color={theme.colors.text.primary} />
-                ) : (
-                  <Play size={16} color={theme.colors.text.primary} />
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
+          {!isCreator && (
+            <View style={[styles.viewerBadge, { backgroundColor: theme.colors.background.elevated }]}>
+              <Eye size={14} color={theme.colors.text.secondary} />
+              <Text style={[styles.viewerText, { color: theme.colors.text.secondary }]}>İzleyici</Text>
+            </View>
           )}
         </View>
         
         <View style={styles.videoWrapper}>
-    <WebView
-      ref={webViewRef}
-      source={{ uri: embedUrl }}
+          <WebView
+            ref={webViewRef}
+            source={{ uri: embedUrl }}
             style={styles.webView}
-      allowsFullscreenVideo
-      allowsInlineMediaPlayback
-      mediaPlaybackRequiresUserAction={false}
-      javaScriptEnabled
-      injectedJavaScript={injectedJavaScript}
-      onMessage={handleMessage}
-    />
+            allowsFullscreenVideo={isCreator}
+            allowsInlineMediaPlayback
+            mediaPlaybackRequiresUserAction={!isCreator}
+            javaScriptEnabled
+            injectedJavaScript={injectedJavaScript}
+            onMessage={handleMessage}
+            userAgent={isCreator ? undefined : "Mozilla/5.0 (compatible; SyncWatch-Viewer/1.0)"}
+            onLoad={() => {
+              console.log('WebView loaded, syncing video state...');
+              setTimeout(syncVideoState, 1000);
+            }}
+            scalesPageToFit={false}
+            bounces={false}
+            scrollEnabled={false}
+            allowsLinkPreview={false}
+            allowsBackForwardNavigationGestures={false}
+            decelerationRate="normal"
+            onShouldStartLoadWithRequest={(request) => {
+              if (!isCreator && !request.url.includes('youtube.com/embed')) {
+                console.log('🚫 Blocking navigation for viewer:', request.url);
+                return false;
+              }
+              return true;
+            }}
+          />
+          
+          {!isCreator && (
+            <TouchableOpacity
+              style={styles.viewerBlockOverlay}
+              activeOpacity={1}
+              onPress={() => {
+                console.log('🚫 Viewer touch blocked by React Native overlay');
+              }}
+              onLongPress={() => {
+                console.log('🚫 Viewer long press blocked');
+              }}
+              onPressIn={() => {
+                console.log('🚫 Viewer press in blocked');
+              }}
+              onPressOut={() => {
+                console.log('🚫 Viewer press out blocked');
+              }}
+            >
+            </TouchableOpacity>
+          )}
         </View>
       </GradientCard>
     </Animated.View>
   );
 };
 
-const getEmbedUrl = (url: string) => {
+const getEmbedUrl = (url: string, isCreator: boolean = false) => {
   let videoId = '';
   
   if (url.includes('youtube.com/watch?v=')) {
@@ -215,12 +524,19 @@ const getEmbedUrl = (url: string) => {
   }
   
   if (videoId) {
-    return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&playsinline=1&modestbranding=1&rel=0&fs=1`;
+    if (isCreator) {
+      // Creator için tam kontrol
+      return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&playsinline=1&modestbranding=1&rel=0&fs=1&controls=1&disablekb=0&iv_load_policy=3`;
+    } else {
+      // İzleyiciler için minimal kontrol - tamamen devre dışı
+      return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&playsinline=1&modestbranding=1&rel=0&fs=0&controls=0&disablekb=1&iv_load_policy=3&showinfo=0&cc_load_policy=0&autoplay=0&start=0&end=0&loop=0&mute=0`;
+    }
   }
   
   if (url.includes('vimeo.com')) {
     const vimeoId = url.split('vimeo.com/')[1]?.split('?')[0];
-    return `https://player.vimeo.com/video/${vimeoId}?playsinline=1`;
+    const controls = isCreator ? 'true' : 'false';
+    return `https://player.vimeo.com/video/${vimeoId}?playsinline=1&controls=${controls}&autoplay=0`;
   }
   
   return url;
@@ -255,72 +571,146 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
   }, []);
 
   useEffect(() => {
-    console.log('WatchRoom: Hiding tab bar');
     hideTabBar();
     
+    loadUsers();
+    fetchVideoState();
     fetchMessages();
     fetchMembers();
-    fetchVideoState();
-    loadUsers();
-    
-    const messagesSubscription = supabase
-      .channel('watch_room_messages')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'watch_room_messages',
-        filter: `room_id=eq.${roomId}`
-      }, () => {
-        fetchMessages();
-      })
-      .subscribe();
 
-    const videoSubscription = supabase
-      .channel('watch_room_video_state')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'watch_room_video_state',
-        filter: `room_id=eq.${roomId}`
-      }, () => {
-        fetchVideoState();
-      })
+    // Video state için real-time subscription
+    const videoStateSubscription = supabase
+      .channel(`video_state_${roomId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // UPDATE ve INSERT eventlerini dinle
+          schema: 'public',
+          table: 'watch_room_video_state',
+          filter: `room_id=eq.${roomId}`,
+        },
+        (payload) => {
+          console.log('🔔 Video state change received:', payload.eventType, payload);
+          
+          if (payload.new && typeof payload.new === 'object') {
+            const newVideoState = {
+              is_playing: Boolean((payload.new as any).is_playing),
+              playback_time: Number((payload.new as any).playback_time) || 0
+            };
+            
+            console.log('📡 Updating video state from subscription:', newVideoState);
+            setVideoState(newVideoState);
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('📺 Video subscription status:', status);
+      });
+
+    // Chat messages için real-time subscription
+    const messageSubscription = supabase
+      .channel(`messages_${roomId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'watch_room_messages',
+          filter: `room_id=eq.${roomId}`,
+        },
+        (payload) => {
+          console.log('New message received:', payload);
+          if (payload.new && typeof payload.new === 'object') {
+            const newMsg = payload.new as any;
+            
+            // Mesajın zaten listede olup olmadığını kontrol et
+            setMessages(prev => {
+              const messageExists = prev.find(msg => msg.id === newMsg.id);
+              if (messageExists) return prev;
+              
+              const userInfo = users[newMsg.user_id];
+              const formattedMessage: Message = {
+                id: newMsg.id,
+                user_id: newMsg.user_id,
+                content: newMsg.content,
+                created_at: newMsg.created_at,
+                userName: userInfo?.name || 'Kullanıcı'
+              };
+              
+              const newMessages = [...prev, formattedMessage];
+              
+              // Auto-scroll to bottom
+              setTimeout(() => scrollToBottom(), 100);
+              
+              return newMessages;
+            });
+          }
+        }
+      )
       .subscribe();
 
     return () => {
-      console.log('WatchRoom: Showing tab bar');
-      messagesSubscription.unsubscribe();
-      videoSubscription.unsubscribe();
       showTabBar();
+      videoStateSubscription.unsubscribe();
+      messageSubscription.unsubscribe();
     };
-  }, [hideTabBar, showTabBar, roomId]);
+  }, [roomId, hideTabBar, showTabBar]);
+
+  // Users değiştiğinde mesajları güncelle
+  useEffect(() => {
+    if (Object.keys(users).length > 0) {
+      setMessages(prev => prev.map(msg => ({
+        ...msg,
+        userName: users[msg.user_id]?.name || 'Kullanıcı'
+      })));
+    }
+  }, [users]);
 
   const loadUsers = async () => {
     try {
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id, name');
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('user_id, id, name, photo_url');
       
-      if (userError) throw userError;
+      if (error) {
+        // Eğer profiles tablosu yoksa, kullanıcı bilgilerini auth'dan al
+        if (error.code === '42P01') {
+          console.log('Profiles table not found, using fallback');
+          const fallbackUsers: {[key: string]: {name: string, photoUrl: string | null}} = {};
+          if (user) {
+            fallbackUsers[user.id] = {
+              name: user.user_metadata?.name || user.email || 'Kullanıcı',
+              photoUrl: null
+            };
+          }
+          setUsers(fallbackUsers);
+          return;
+        }
+        console.error('Error loading users:', error);
+        return;
+      }
 
-      const { data: photoData, error: photoError } = await supabase
-        .from('profile_photos')
-        .select('user_id, photo_url');
-
-      if (photoError) throw photoError;
-
-      const userMap = (userData || []).reduce((acc: any, user) => {
-        const photo = photoData?.find(p => p.user_id === user.id);
-        acc[user.id] = { 
-          name: user.name || 'Anonim Kullanıcı',
-          photoUrl: photo?.photo_url || null
-        };
-        return acc;
-      }, {});
-
-      setUsers(userMap);
+      if (profiles && Array.isArray(profiles)) {
+        const userMap: {[key: string]: {name: string, photoUrl: string | null}} = {};
+        profiles.forEach((profile: any) => {
+          userMap[profile.user_id || profile.id] = {
+            name: profile.name || 'Kullanıcı',
+            photoUrl: profile.photo_url
+          };
+        });
+        setUsers(userMap);
+      }
     } catch (error) {
-      console.error('Error loading users:', error);
+      console.error('Error in loadUsers:', error);
+      // Fallback: Sadece mevcut kullanıcı bilgisini kullan
+      if (user) {
+        setUsers({
+          [user.id]: {
+            name: user.user_metadata?.name || user.email || 'Kullanıcı',
+            photoUrl: null
+          }
+        });
+      }
     }
   };
 
@@ -328,39 +718,68 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
     try {
       const { data, error } = await supabase
         .from('watch_room_video_state')
-        .select('*')
+        .select('is_playing, playback_time')
         .eq('room_id', roomId)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
-        throw error;
+      if (error) {
+        // Eğer tablo yoksa veya kayıt yoksa, varsayılan durum kullan
+        if (error.code === '42P01' || error.code === 'PGRST116') {
+          console.log('Video state table/record not found, using default state');
+          setVideoState({ is_playing: false, playback_time: 0 });
+          return;
+        }
+        console.error('Error fetching video state:', error);
+        return;
       }
-      
+
       if (data) {
+        const videoData = data as any;
         setVideoState({
-          is_playing: data.is_playing,
-          playback_time: data.playback_time
+          is_playing: Boolean(videoData.is_playing),
+          playback_time: Number(videoData.playback_time) || 0
         });
       }
     } catch (error) {
-      console.error('Error fetching video state:', error);
+      console.error('Error in fetchVideoState:', error);
+      setVideoState({ is_playing: false, playback_time: 0 });
     }
   };
 
   const updateVideoState = async (newState: VideoState) => {
+    if (!isCreator) {
+      console.log('❌ Only room creator can update video state');
+      return;
+    }
+    
+    console.log('🔄 Updating video state in database:', newState);
+    
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('watch_room_video_state')
         .upsert({
           room_id: roomId,
           is_playing: newState.is_playing,
-          playback_time: newState.playback_time,
-          updated_at: new Date().toISOString()
-        });
+          playback_time: newState.playback_time
+        }, {
+          onConflict: 'room_id'
+        })
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        // Eğer tablo yoksa log yaz ama hata verme
+        if (error.code === '42P01') {
+          console.log('⚠️ Video state table not found, video sync disabled');
+          return;
+        }
+        console.error('❌ Error updating video state:', error);
+        setError('Video durumu güncellenirken hata oluştu');
+      } else {
+        console.log('✅ Video state updated successfully:', data);
+      }
     } catch (error) {
-      console.error('Error updating video state:', error);
+      console.error('❌ Error in updateVideoState:', error);
+      // Hata durumunda da devam et
     }
   };
 
@@ -372,41 +791,85 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
         .eq('room_id', roomId)
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        // Eğer tablo yoksa boş mesaj listesi kullan
+        if (error.code === '42P01') {
+          console.log('Messages table not found, using empty messages');
+          setMessages([]);
+          return;
+        }
+        console.error('Error fetching messages:', error);
+        return;
+      }
 
-      const messagesWithUserNames = (data || []).map(msg => ({
-        ...msg,
-        userName: users[msg.user_id]?.name || 'Anonim'
+      if (data && Array.isArray(data)) {
+        const messagesWithUsernames = data.map((msg: any) => ({
+          id: msg.id,
+          user_id: msg.user_id,
+          content: msg.content,
+          created_at: msg.created_at,
+          userName: users[msg.user_id]?.name || 'Kullanıcı'
         }));
-
-        setMessages(messagesWithUserNames);
-        setTimeout(() => scrollToBottom(), 100);
+        setMessages(messagesWithUsernames);
+        setTimeout(scrollToBottom, 100);
+      }
     } catch (error) {
-      console.error('Error fetching messages:', error);
-      setError('Mesajlar yüklenirken hata oluştu');
+      console.error('Error in fetchMessages:', error);
+      setMessages([]);
     }
   };
 
   const fetchMembers = async () => {
     try {
       const { data, error } = await supabase
-        .from('watch_room_members')
-        .select('*')
+        .from('watch_room_participants')
+        .select('user_id')
         .eq('room_id', roomId);
 
-      if (error) throw error;
-      setMembers(data || []);
+      if (error) {
+        // Eğer tablo yoksa boş dizi kullan
+        if (error.code === '42P01') {
+          console.log('Participants table not found, using empty array');
+          setMembers([]);
+          return;
+        }
+        console.error('Error fetching members:', error);
+        return;
+      }
+
+      if (data && Array.isArray(data)) {
+        setMembers(data);
+      }
     } catch (error) {
-      console.error('Error fetching members:', error);
+      console.error('Error in fetchMembers:', error);
+      setMembers([]);
     }
   };
 
   const scrollToBottom = () => {
-    scrollViewRef.current?.scrollToEnd({ animated: true });
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollToEnd({ animated: true });
+    }
   };
 
   const handleSend = async () => {
-    if (!newMessage.trim() || !user) return;
+    if (!newMessage.trim() || !user || loading) return;
+
+    const messageToSend = newMessage.trim();
+    const tempMessage: Message = {
+      id: `temp_${Date.now()}`,
+      user_id: user.id,
+      content: messageToSend,
+      created_at: new Date().toISOString(),
+      userName: users[user.id]?.name || user.user_metadata?.name || user.email || 'Kullanıcı'
+    };
+
+    // Optimistic update - mesajı hemen göster
+    setMessages(prev => [...prev, tempMessage]);
+    setNewMessage('');
+    
+    // Auto-scroll
+    setTimeout(() => scrollToBottom(), 100);
 
     try {
       setLoading(true);
@@ -415,14 +878,32 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
         .insert({
           room_id: roomId,
           user_id: user.id,
-          content: newMessage.trim()
+          content: messageToSend
         });
 
-      if (error) throw error;
-      setNewMessage('');
+      if (error) {
+        // Hata durumunda temp mesajı kaldır
+        setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
+        setNewMessage(messageToSend); // Mesajı geri yükle
+        
+        if (error.code === '42P01') {
+          setError('Mesaj sistemi henüz aktif değil');
+          return;
+        }
+        throw error;
+      }
+      
+      // Başarılı olduğunda temp mesajı kaldır (real-time subscription gerçek mesajı ekleyecek)
+      setTimeout(() => {
+        setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
+      }, 1000);
+      
     } catch (error) {
       console.error('Error sending message:', error);
       setError('Mesaj gönderilirken hata oluştu');
+      // Temp mesajı kaldır
+      setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
+      setNewMessage(messageToSend); // Mesajı geri yükle
     } finally {
       setLoading(false);
     }
@@ -442,11 +923,10 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
     userInfo: any;
   }) => {
     return (
-      <Animated.View
-        entering={SlideInRight.delay(50).duration(400)}
+      <View
         style={[
           styles.messageWrapper,
-          isOwnMessage ? styles.ownMessageWrapper : null
+          isOwnMessage && styles.ownMessageWrapper
         ]}
       >
         {!isOwnMessage && showAvatar && (
@@ -473,7 +953,7 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
               </Text>
             </LinearGradient>
           ) : (
-            <ModernCard variant="elevated" style={[styles.messageBubble, styles.otherMessage]}>
+            <View style={[styles.messageBubble, styles.otherMessage, { backgroundColor: theme.colors.background.card }]}>
               {showAvatar && (
                 <Text style={[styles.messageSender, { color: theme.colors.primary[400] }]}>
                   {userInfo?.name}
@@ -485,10 +965,10 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
               <Text style={[styles.messageTime, { color: theme.colors.text.secondary }]}>
                 {formatTime(message.created_at)}
               </Text>
-            </ModernCard>
+            </View>
           )}
         </View>
-      </Animated.View>
+      </View>
     );
   };
 
@@ -549,10 +1029,7 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
               theme={theme}
             />
 
-            <Animated.View 
-              style={styles.chatSection}
-              entering={FadeIn.delay(400).duration(600)}
-            >
+            <View style={styles.chatSection}>
               <GradientCard colors={theme.colors.gradients.warmDark} style={styles.chatCard}>
                 <View style={styles.chatHeader}>
                   <MessageSquare size={20} color={theme.colors.primary[400]} />
@@ -560,75 +1037,92 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
                   <Text style={[styles.messageCount, { color: theme.colors.text.secondary }]}>
                     {messages.length} mesaj
                   </Text>
-        </View>
+                </View>
 
                 <View style={styles.messagesContainer}>
-          <ScrollView
-            ref={scrollViewRef}
+                  <ScrollView
+                    ref={scrollViewRef}
                     style={styles.messagesScroll}
-            contentContainerStyle={styles.messagesContent}
-                    onContentSizeChange={() => scrollToBottom()}
+                    contentContainerStyle={[
+                      styles.messagesContent,
+                      messages.length === 0 && { flex: 1 }
+                    ]}
                     showsVerticalScrollIndicator={false}
-          >
-            {messages.map((message, index) => {
-              const isOwnMessage = message.user_id === user?.id;
-              const showAvatar = !isOwnMessage && (!messages[index - 1] || messages[index - 1].user_id !== message.user_id);
-                      const userInfo = users[message.user_id];
-              
-              return (
-                        <MessageBubble
-                  key={message.id}
-                          message={message}
-                          isOwnMessage={isOwnMessage}
-                          showAvatar={showAvatar}
-                          userInfo={userInfo}
-                        />
-                      );
-                    })}
-                    
-                    {messages.length === 0 && (
-                      <Animated.View 
-                        style={styles.emptyContainer}
-                        entering={FadeIn.delay(200).duration(600)}
-                      >
+                    keyboardShouldPersistTaps="handled"
+                    onContentSizeChange={() => {
+                      // Otomatik scroll
+                      setTimeout(() => scrollToBottom(), 50);
+                    }}
+                  >
+                    {messages.length === 0 ? (
+                      <View style={styles.emptyContainer}>
                         <MessageSquare size={32} color={theme.colors.text.secondary} />
                         <Text style={[styles.emptyText, { color: theme.colors.text.secondary }]}>
                           Henüz mesaj yok
                         </Text>
                         <Text style={[styles.emptySubtext, { color: theme.colors.text.secondary + '80' }]}>
                           İlk mesajı gönderin!
-                    </Text>
-                      </Animated.View>
+                        </Text>
+                      </View>
+                    ) : (
+                      messages.map((message, index) => {
+                        const isOwnMessage = message.user_id === user?.id;
+                        const showAvatar = !isOwnMessage && (!messages[index - 1] || messages[index - 1].user_id !== message.user_id);
+                        const userInfo = users[message.user_id];
+                        
+                        return (
+                          <MessageBubble
+                            key={message.id}
+                            message={message}
+                            isOwnMessage={isOwnMessage}
+                            showAvatar={showAvatar}
+                            userInfo={userInfo}
+                          />
+                        );
+                      })
                     )}
                   </ScrollView>
                 </View>
 
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-          >
-                  <View style={[styles.inputContainer, { backgroundColor: theme.colors.background.elevated }]}>
-            <TextInput
+                <KeyboardAvoidingView
+                  behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                  keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+                  style={{ flexShrink: 0 }}
+                >
+                  <View style={[styles.inputContainer, { 
+                    backgroundColor: theme.colors.background.elevated,
+                    borderWidth: 1,
+                    borderColor: theme.colors.border.primary + '40'
+                  }]}>
+                    <TextInput
                       style={[styles.input, { 
-                        backgroundColor: theme.colors.background.elevated,
+                        backgroundColor: theme.colors.background.card,
                         color: theme.colors.text.primary,
-                        borderColor: theme.colors.border.primary
+                        borderColor: theme.colors.border.primary + '20'
                       }]}
-              value={newMessage}
-              onChangeText={setNewMessage}
+                      value={newMessage}
+                      onChangeText={setNewMessage}
                       placeholder="Mesajınızı yazın..."
-                      placeholderTextColor={theme.colors.text.secondary}
-              multiline
+                      placeholderTextColor={theme.colors.text.secondary + '80'}
+                      multiline
                       maxLength={200}
-            />
-            <TouchableOpacity
+                      returnKeyType="send"
+                      onSubmitEditing={() => {
+                        if (newMessage.trim() && !loading) {
+                          handleSend();
+                        }
+                      }}
+                      blurOnSubmit={false}
+                    />
+                    <TouchableOpacity
                       style={[
                         styles.sendButton,
                         (!newMessage.trim() || loading) && styles.sendButtonDisabled
                       ]}
-              onPress={handleSend}
-              disabled={!newMessage.trim() || loading}
-            >
+                      onPress={handleSend}
+                      disabled={!newMessage.trim() || loading}
+                      activeOpacity={0.7}
+                    >
                       <LinearGradient
                         colors={(!newMessage.trim() || loading) ? 
                           [theme.colors.darkGray[600], theme.colors.darkGray[700]] : 
@@ -638,11 +1132,11 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
                       >
                         <Send size={16} color={theme.colors.text.primary} />
                       </LinearGradient>
-            </TouchableOpacity>
+                    </TouchableOpacity>
                   </View>
-          </KeyboardAvoidingView>
+                </KeyboardAvoidingView>
               </GradientCard>
-            </Animated.View>
+            </View>
           </ScrollView>
         </SafeAreaView>
       </GradientBackground>
@@ -892,31 +1386,68 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderRadius: BorderRadius.lg,
     gap: Spacing.sm,
+    marginTop: Spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   input: {
     flex: 1,
     borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Platform.OS === 'ios' ? Spacing.sm : 8,
     fontSize: FontSizes.sm,
     fontFamily: 'Inter-Regular',
-    maxHeight: 80,
-    minHeight: 36,
+    maxHeight: 100,
+    minHeight: 44,
     textAlignVertical: 'top',
     borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   sendButton: {
     borderRadius: BorderRadius.round,
     overflow: 'hidden',
+    alignSelf: 'flex-end',
+    marginBottom: 2,
     ...Shadows.small,
   },
   sendButtonGradient: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
   sendButtonDisabled: {
     opacity: 0.5,
+  },
+  viewerBadge: {
+    padding: Spacing.xs,
+    borderRadius: BorderRadius.round,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  viewerText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: FontSizes.xs,
+  },
+  timeText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: FontSizes.xs,
+  },
+  viewerBlockOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    zIndex: 999999,
+    backgroundColor: 'transparent',
   },
 });

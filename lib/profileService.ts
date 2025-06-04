@@ -22,16 +22,16 @@ export const getProfilePhoto = async (userId: string): Promise<string> => {
 };
 
 /**
- * Profil fotoğrafı yükle
+ * Profil fotoğrafı yükle - Geçici çözüm: Base64 olarak veritabanında sakla
  * @param userId Kullanıcı ID'si
  * @param file Fotoğraf dosyası
  * @returns Yüklenen fotoğrafın URL'si
  */
 export const uploadProfilePhoto = async (userId: string, file: Blob): Promise<string> => {
   try {
-    // Dosya boyut kontrolü (5MB limit)
-    if (file.size > 5 * 1024 * 1024) {
-      throw new Error('Dosya boyutu 5MB\'dan büyük olamaz');
+    // Dosya boyut kontrolü (1MB limit - çok düşük limit base64 için)
+    if (file.size > 1 * 1024 * 1024) {
+      throw new Error('Dosya boyutu 1MB\'dan büyük olamaz');
     }
 
     // Dosya tipi kontrolü
@@ -39,91 +39,86 @@ export const uploadProfilePhoto = async (userId: string, file: Blob): Promise<st
       throw new Error('Sadece resim dosyaları yüklenebilir');
     }
 
-    // Dosya adı oluştur
-    const fileExt = file.type.split('/')[1] || 'jpg';
-    const fileName = `profile-${userId}-${Date.now()}.${fileExt}`;
-    const filePath = `avatars/${fileName}`;
+    console.log('Converting to base64, size:', file.size, 'type:', file.type);
 
-    console.log('Uploading file:', filePath, 'Size:', file.size, 'Type:', file.type);
+    // Blob'u base64'e çevir
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result);
+      };
+      reader.onerror = () => reject(new Error('Dosya okunamadı'));
+      reader.readAsDataURL(file);
+    });
 
-    // Önce eski fotoğrafı sil (varsa)
-    try {
-      const { data: existingPhoto } = await supabase
-        .from('profile_photos')
-        .select('photo_url')
-        .eq('user_id', userId)
-        .maybeSingle();
+    console.log('Base64 conversion successful, length:', base64.length);
 
-      if ((existingPhoto as any)?.photo_url) {
-        // URL'den dosya yolunu çıkar
-        const oldPath = (existingPhoto as any).photo_url.split('/').pop();
-        if (oldPath && oldPath.includes('profile-')) {
-          await supabase.storage
-            .from('avatars')
-            .remove([`avatars/${oldPath}`]);
+    // Veritabanına base64 olarak kaydet
+    let dbError: any = null;
+    
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        console.log(`Database save attempt ${attempt}/2`);
+        
+        const { error } = await supabase
+          .from('profile_photos')
+          .upsert(
+            {
+              user_id: userId,
+              photo_url: base64, // Base64 string olarak sakla
+              updated_at: new Date().toISOString()
+            },
+            { 
+              onConflict: 'user_id',
+              ignoreDuplicates: false 
+            }
+          );
+
+        if (error) {
+          dbError = error;
+          console.error(`Database attempt ${attempt} failed:`, error);
+          if (attempt === 2) {
+            throw error;
+          }
+          await new Promise(resolve => setTimeout(resolve, 500));
+          continue;
         }
+
+        dbError = null;
+        break;
+      } catch (error) {
+        dbError = error;
+        console.error(`Database attempt ${attempt} failed:`, error);
+        if (attempt === 2) {
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
-    } catch (deleteError) {
-      console.log('Old photo deletion failed (not critical):', deleteError);
     }
-
-    // Storage'a yükle
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('avatars')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: true
-      });
-
-    if (uploadError) {
-      console.error('Upload error:', uploadError);
-      throw new Error(`Yükleme hatası: ${uploadError.message}`);
-    }
-
-    console.log('Upload successful:', uploadData);
-
-    // Public URL al
-    const { data: { publicUrl } } = supabase.storage
-      .from('avatars')
-      .getPublicUrl(filePath);
-
-    console.log('Public URL:', publicUrl);
-
-    // Veritabanına kaydet
-    const { error: dbError } = await supabase
-      .from('profile_photos')
-      .upsert(
-        {
-          user_id: userId,
-          photo_url: publicUrl,
-          updated_at: new Date().toISOString()
-        },
-        { 
-          onConflict: 'user_id',
-          ignoreDuplicates: false 
-        }
-      );
 
     if (dbError) {
       console.error('Database error:', dbError);
       throw new Error(`Veritabanı hatası: ${dbError.message}`);
     }
 
-    console.log('Profile photo updated successfully');
-    return publicUrl;
+    console.log('Profile photo saved to database successfully');
+    return base64;
   } catch (error: any) {
     console.error('Error uploading profile photo:', error);
     
     // Kullanıcı dostu hata mesajları
-    if (error.message?.includes('Invalid bucket')) {
-      throw new Error('Depolama alanı bulunamadı. Lütfen daha sonra tekrar deneyin.');
-    } else if (error.message?.includes('network')) {
-      throw new Error('Ağ bağlantısı hatası. İnternet bağlantınızı kontrol edin.');
-    } else if (error.message?.includes('permission')) {
-      throw new Error('Yetki hatası. Lütfen giriş yapıp tekrar deneyin.');
+    if (error.message?.includes('boyut') || error.message?.includes('size') || error.message?.includes('1MB')) {
+      throw new Error('Dosya boyutu çok büyük. Lütfen 1MB\'dan küçük bir fotoğraf seçin.');
+    } else if (error.message?.includes('tip') || error.message?.includes('type')) {
+      throw new Error('Lütfen sadece resim dosyası seçin.');
+    } else if (error.message?.includes('okunamadı')) {
+      throw new Error('Dosya okunamadı. Lütfen farklı bir fotoğraf seçin.');
+    } else if (error.message?.includes('Veritabanı')) {
+      throw new Error(error.message);
     }
     
-    throw error;
+    throw new Error('Fotoğraf kaydedilirken bir hata oluştu. Lütfen tekrar deneyin.');
   }
 };
 

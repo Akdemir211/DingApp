@@ -45,7 +45,7 @@ const translations = {
     'profile.this_week': 'Bu hafta',
     'profile.new': 'Yeni',
     'profile.account_settings': 'Hesap Ayarları',
-    'profile.account_info': 'Hesap Bilgileri',
+    'profile.account_info': 'Hesap Ayarları',
     'profile.notifications': 'Bildirimler',
     'profile.upgrade_pro': 'Pro\'ya Yükselt',
     'profile.app_settings': 'Uygulama Ayarları',

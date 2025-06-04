@@ -1,17 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, FontSizes, BorderRadius, Shadows } from '@/constants/Theme';
 import { Input } from '@/components/UI/Input';
 import { Button } from '@/components/UI/Button';
-import { ModernCard } from '@/components/UI/ModernCard';
-import { GradientBackground, GradientCard } from '@/components/UI/GradientBackground';
 import { ProfilePhoto } from '@/components/UI/ProfilePhoto';
 import { useAuth } from '@/context/AuthContext';
-import { useLanguage } from '@/context/LanguageContext';
-import { useTheme } from '@/context/ThemeContext';
 import { router } from 'expo-router';
-import { ArrowLeft, User, Lock, Shield, CheckCircle, AlertCircle } from 'lucide-react-native';
+import { ArrowLeft, User, Lock, Shield, CheckCircle, AlertCircle, Mail } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import { supabase } from '@/lib/supabase';
 import { eventEmitter, Events } from '@/lib/eventEmitter';
@@ -23,14 +19,14 @@ import Animated, {
 
 export default function AccountSettingsScreen() {
   const { user } = useAuth();
-  const { theme } = useTheme();
-  const { t } = useLanguage();
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -57,11 +53,13 @@ export default function AccountSettingsScreen() {
         setName((userData as any).name || '');
       }
 
+      setEmail(user.email || '');
+      
       const photoUrl = await getProfilePhoto(user.id);
       setPhotoUrl(photoUrl);
     } catch (error: any) {
       console.error('Error fetching user profile:', error);
-      setError(t('account.loading_error'));
+      setError('Profil bilgileri yüklenirken hata oluştu');
     }
   };
 
@@ -80,7 +78,7 @@ export default function AccountSettingsScreen() {
 
       if (error) throw error;
 
-      setSuccess(t('account.profile_updated'));
+      setSuccess('Profil bilgileri güncellendi');
       eventEmitter.emit(Events.USER_DATA_UPDATED);
     } catch (error: any) {
       setError(error.message);
@@ -98,11 +96,11 @@ export default function AccountSettingsScreen() {
       setSuccess(null);
 
       if (newPassword !== confirmPassword) {
-        throw new Error(t('account.passwords_not_match'));
+        throw new Error('Şifreler eşleşmiyor');
       }
 
       if (newPassword.length < 6) {
-        throw new Error(t('account.password_min_length'));
+        throw new Error('Şifre en az 6 karakter olmalı');
       }
 
       const { error } = await supabase.auth.updateUser({
@@ -111,9 +109,10 @@ export default function AccountSettingsScreen() {
 
       if (error) throw error;
 
-      setSuccess(t('account.password_updated'));
+      setSuccess('Şifre güncellendi');
       setNewPassword('');
       setConfirmPassword('');
+      setCurrentPassword('');
     } catch (error: any) {
       setError(error.message);
     } finally {
@@ -126,277 +125,302 @@ export default function AccountSettingsScreen() {
     eventEmitter.emit(Events.USER_DATA_UPDATED);
   };
 
+  const showMessage = (message: string, isError: boolean = false) => {
+    Alert.alert(
+      isError ? 'Hata' : 'Başarılı',
+      message,
+      [{ text: 'Tamam' }]
+    );
+  };
+
+  useEffect(() => {
+    if (error) {
+      showMessage(error, true);
+      setError(null);
+    }
+  }, [error]);
+
+  useEffect(() => {
+    if (success) {
+      showMessage(success, false);
+      setSuccess(null);
+    }
+  }, [success]);
+
   return (
-    <View style={styles.container}>
-      <GradientBackground colors={[theme.colors.background.dark, theme.colors.background.darker, theme.colors.darkGray[800]]}>
-        <FloatingBubbleBackground />
-        <SafeAreaView style={styles.safeArea}>
-          {/* Header */}
+    <SafeAreaView style={styles.container}>
+      <FloatingBubbleBackground />
+      
+      <KeyboardAvoidingView 
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        {/* Header */}
+        <Animated.View 
+          style={styles.header}
+          entering={FadeIn.duration(400)}
+        >
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <ArrowLeft size={24} color={Colors.text.primary} />
+          </TouchableOpacity>
+          <Text style={styles.title}>Hesap Ayarları</Text>
+          <Text style={styles.subtitle}>Profil bilgilerinizi yönetin</Text>
+        </Animated.View>
+
+        <ScrollView 
+          style={styles.scrollView} 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Profile Photo Section */}
           <Animated.View 
-            style={styles.header}
-            entering={FadeIn.duration(400)}
+            entering={FadeIn.delay(200).duration(600)}
+            style={styles.photoSection}
           >
-            <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: theme.colors.background.elevated }]}>
-              <ArrowLeft size={20} color={theme.colors.text.primary} />
-            </TouchableOpacity>
-            <Text style={[styles.title, { color: theme.colors.text.primary }]}>{t('account.title')}</Text>
-            <View style={styles.headerSpacer} />
+            <View style={styles.photoContainer}>
+              <ProfilePhoto 
+                uri={photoUrl}
+                size={80}
+                editable={true}
+                onPhotoUpdated={handlePhotoUpdated}
+              />
+              <View style={styles.photoInfo}>
+                <Text style={styles.photoTitle}>Profil Fotoğrafı</Text>
+                <Text style={styles.photoSubtitle}>Fotoğrafınızı değiştirmek için tıklayın</Text>
+              </View>
+            </View>
           </Animated.View>
 
-          <ScrollView 
-            style={styles.scrollView} 
-            contentContainerStyle={styles.content}
-            showsVerticalScrollIndicator={false}
+          {/* Profile Information */}
+          <Animated.View 
+            entering={FadeIn.delay(400).duration(600)}
+            style={styles.section}
           >
-            {/* Profile Hero */}
-            <Animated.View 
-              entering={FadeIn.delay(200).duration(600)}
-              style={styles.heroSection}
-            >
-              <GradientCard colors={theme.colors.gradients.accent} style={styles.heroCard}>
-                <View style={styles.heroContent}>
-                  <ProfilePhoto 
-                    uri={photoUrl}
-                    size={70}
-                    editable={true}
-                    onPhotoUpdated={handlePhotoUpdated}
-                  />
-                  <View style={styles.heroInfo}>
-                    <Text style={[styles.heroName, { color: theme.colors.text.primary }]}>{name || t('profile.user')}</Text>
-                    <Text style={[styles.heroEmail, { color: theme.colors.text.secondary }]}>{user?.email}</Text>
-                  </View>
-                </View>
-              </GradientCard>
-            </Animated.View>
-
-            {/* Profile Information */}
-            <Animated.View 
-              entering={FadeIn.delay(400).duration(600)}
-              style={styles.section}
-            >
-              <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>{t('account.profile_info')}</Text>
-              <ModernCard variant="elevated" style={styles.formCard}>
-                <View style={styles.formHeader}>
-                  <User size={20} color={theme.colors.primary[400]} />
-                  <Text style={[styles.formTitle, { color: theme.colors.text.primary }]}>{t('account.personal_info')}</Text>
-                </View>
-                
-                <View style={styles.form}>
-                  <Input
-                    label={t('account.full_name')}
-                    value={name}
-                    onChangeText={setName}
-                    placeholder={t('account.enter_name')}
-                    style={styles.input}
-                  />
-                  
-                  <Button
-                    title={t('account.update_profile')}
-                    onPress={handleUpdateProfile}
-                    variant="primary"
-                    isLoading={loading}
-                    style={styles.updateButton}
-                  />
-                </View>
-              </ModernCard>
-            </Animated.View>
-
-            {/* Security */}
-            <Animated.View 
-              entering={FadeIn.delay(600).duration(600)}
-              style={styles.section}
-            >
-              <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>{t('account.security')}</Text>
-              <ModernCard variant="elevated" style={styles.formCard}>
-                <View style={styles.formHeader}>
-                  <Shield size={20} color={theme.colors.warning} />
-                  <Text style={[styles.formTitle, { color: theme.colors.text.primary }]}>{t('account.change_password')}</Text>
-                </View>
-                
-                <View style={styles.form}>
-                  <Input
-                    label={t('account.new_password')}
-                    value={newPassword}
-                    onChangeText={setNewPassword}
-                    placeholder={t('account.enter_new_password')}
-                    secureTextEntry
-                    style={styles.input}
-                  />
-                  
-                  <Input
-                    label={t('account.confirm_password')}
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    placeholder={t('account.enter_confirm_password')}
-                    secureTextEntry
-                    style={styles.input}
-                  />
-                  
-                  <Button
-                    title={t('account.update_password')}
-                    onPress={handleUpdatePassword}
-                    variant="primary"
-                    isLoading={loading}
-                    style={styles.updateButton}
-                  />
-                </View>
-              </ModernCard>
-            </Animated.View>
-
-            {/* Messages */}
-            {error && (
-              <Animated.View 
-                entering={FadeIn.duration(400)}
-                style={styles.messageContainer}
-              >
-                <View style={[styles.errorCard, { backgroundColor: theme.colors.error + '10' }]}>
-                  <View style={styles.messageContent}>
-                    <AlertCircle size={18} color={theme.colors.error} />
-                    <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
-                  </View>
-                </View>
-              </Animated.View>
-            )}
+            <View style={styles.sectionHeader}>
+              <User size={20} color={Colors.primary[400]} />
+              <Text style={styles.sectionTitle}>Kişisel Bilgiler</Text>
+            </View>
             
-            {success && (
-              <Animated.View 
-                entering={FadeIn.duration(400)}
-                style={styles.messageContainer}
-              >
-                <View style={[styles.successCard, { backgroundColor: theme.colors.success + '10' }]}>
-                  <View style={styles.messageContent}>
-                    <CheckCircle size={18} color={theme.colors.success} />
-                    <Text style={[styles.successText, { color: theme.colors.success }]}>{success}</Text>
-                  </View>
-                </View>
-              </Animated.View>
-            )}
-          </ScrollView>
-        </SafeAreaView>
-      </GradientBackground>
-    </View>
+            <View style={styles.formContainer}>
+              <Input
+                label=""
+                value={name}
+                onChangeText={setName}
+                placeholder="Adınızı girin"
+                autoCapitalize="words"
+                leftIcon={<User size={24} color={Colors.darkGray[400]} />}
+                style={styles.input}
+              />
+              
+              <Input
+                label=""
+                value={email}
+                onChangeText={setEmail}
+                placeholder="E-posta adresiniz"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                leftIcon={<Mail size={24} color={Colors.darkGray[400]} />}
+                editable={false}
+                style={[styles.input, styles.disabledInput]}
+              />
+              
+              <Button
+                title="Profili Güncelle"
+                onPress={handleUpdateProfile}
+                variant="primary"
+                isLoading={loading}
+                style={styles.updateButton}
+              />
+            </View>
+          </Animated.View>
+
+          {/* Password Change */}
+          <Animated.View 
+            entering={FadeIn.delay(600).duration(600)}
+            style={styles.section}
+          >
+            <View style={styles.sectionHeader}>
+              <Lock size={20} color={Colors.primary[400]} />
+              <Text style={styles.sectionTitle}>Şifre Değiştir</Text>
+            </View>
+            
+            <View style={styles.formContainer}>
+              <Input
+                label=""
+                value={newPassword}
+                onChangeText={setNewPassword}
+                placeholder="Yeni şifre"
+                secureTextEntry
+                leftIcon={<Lock size={24} color={Colors.darkGray[400]} />}
+                style={styles.input}
+              />
+              
+              <Input
+                label=""
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="Yeni şifreyi tekrar girin"
+                secureTextEntry
+                leftIcon={<Lock size={24} color={Colors.darkGray[400]} />}
+                style={styles.input}
+              />
+              
+              <Button
+                title="Şifreyi Güncelle"
+                onPress={handleUpdatePassword}
+                variant="secondary"
+                isLoading={loading}
+                style={styles.passwordButton}
+                disabled={!newPassword || !confirmPassword}
+              />
+            </View>
+          </Animated.View>
+
+          {/* Security Info */}
+          <Animated.View 
+            entering={FadeIn.delay(800).duration(600)}
+            style={styles.infoSection}
+          >
+            <View style={styles.infoCard}>
+              <Shield size={24} color={Colors.primary[400]} />
+              <View style={styles.infoContent}>
+                <Text style={styles.infoTitle}>Güvenlik</Text>
+                <Text style={styles.infoText}>
+                  Hesabınızın güvenliği için güçlü bir şifre kullanın ve düzenli olarak güncelleyin.
+                </Text>
+              </View>
+            </View>
+          </Animated.View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: Colors.background.dark,
   },
-  safeArea: {
+  keyboardView: {
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.lg,
+    paddingBottom: Spacing.xl,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: BorderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...Shadows.small,
-  },
-  headerSpacer: {
-    flex: 1,
+    marginBottom: Spacing.lg,
+    padding: Spacing.sm,
+    alignSelf: 'flex-start',
   },
   title: {
-    flex: 1,
     fontFamily: 'Inter-Bold',
-    fontSize: FontSizes.xl,
-    textAlign: 'center',
-    marginHorizontal: Spacing.md,
+    fontSize: 28,
+    color: Colors.text.primary,
+    marginBottom: Spacing.xs,
+    lineHeight: 36,
+  },
+  subtitle: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSizes.md,
+    color: Colors.text.secondary,
+    lineHeight: 20,
   },
   scrollView: {
     flex: 1,
   },
-  content: {
-    padding: Spacing.lg,
+  scrollContent: {
+    paddingHorizontal: Spacing.xl,
     paddingBottom: Spacing.xxl,
   },
-  heroSection: {
-    alignItems: 'center',
-    marginBottom: Spacing.xl,
+  photoSection: {
+    marginBottom: Spacing.xxl,
   },
-  heroCard: {
-    width: '100%',
-    padding: Spacing.xl,
-    alignItems: 'center',
-    borderRadius: BorderRadius.xl,
-    ...Shadows.large,
-  },
-  heroContent: {
+  photoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: Colors.darkGray[800],
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    ...Shadows.small,
   },
-  heroInfo: {
-    flexDirection: 'column',
+  photoInfo: {
+    flex: 1,
+    marginLeft: Spacing.lg,
   },
-  heroName: {
+  photoTitle: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: FontSizes.lg,
-    marginBottom: Spacing.sm,
+    fontSize: FontSizes.md,
+    color: Colors.text.primary,
+    marginBottom: Spacing.xs,
   },
-  heroEmail: {
-    fontFamily: 'Inter-Medium',
+  photoSubtitle: {
+    fontFamily: 'Inter-Regular',
     fontSize: FontSizes.sm,
+    color: Colors.text.secondary,
+    lineHeight: 18,
   },
   section: {
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.xxl,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.lg,
   },
   sectionTitle: {
     fontFamily: 'Inter-SemiBold',
     fontSize: FontSizes.lg,
-    marginBottom: Spacing.md,
+    color: Colors.text.primary,
+    marginLeft: Spacing.sm,
   },
-  formCard: {
+  formContainer: {
+    backgroundColor: Colors.darkGray[800],
+    borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
-  },
-  formHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
-  formTitle: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: FontSizes.lg,
-  },
-  form: {
-    gap: Spacing.md,
+    ...Shadows.small,
   },
   input: {
-    marginBottom: 0,
+    marginBottom: Spacing.md,
+  },
+  disabledInput: {
+    opacity: 0.6,
   },
   updateButton: {
-    marginTop: Spacing.md,
+    marginTop: Spacing.sm,
   },
-  messageContainer: {
-    marginTop: Spacing.lg,
+  passwordButton: {
+    marginTop: Spacing.sm,
   },
-  errorCard: {
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    ...Shadows.small,
+  infoSection: {
+    marginBottom: Spacing.xl,
   },
-  errorText: {
-    fontFamily: 'Inter-Medium',
-    fontSize: FontSizes.sm,
-    textAlign: 'center',
-  },
-  successCard: {
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    ...Shadows.small,
-  },
-  successText: {
-    fontFamily: 'Inter-Medium',
-    fontSize: FontSizes.sm,
-  },
-  messageContent: {
+  infoCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
+    alignItems: 'flex-start',
+    backgroundColor: Colors.primary[500] + '10',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.primary[400] + '20',
+  },
+  infoContent: {
+    flex: 1,
+    marginLeft: Spacing.md,
+  },
+  infoTitle: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: FontSizes.md,
+    color: Colors.text.primary,
+    marginBottom: Spacing.xs,
+  },
+  infoText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSizes.sm,
+    color: Colors.text.secondary,
+    lineHeight: 18,
   },
 });

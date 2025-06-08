@@ -332,6 +332,7 @@ const styles = StyleSheet.create({
     ...Shadows.small,
   },
   headerSpacer: {
+    paddingTop: Spacing.xxl,
     flex: 1,
   },
   title: {

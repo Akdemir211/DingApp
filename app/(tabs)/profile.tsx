@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: Spacing.xxxl,
+    paddingTop: 0,
     paddingBottom: Spacing.xxl * 2,
   },
   heroSection: {

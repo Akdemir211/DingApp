@@ -59,16 +59,16 @@ export const DarkTheme = {
       focus: BaseColors.primary[500],
     },
     gradients: {
-      primary: [BaseColors.primary[500], BaseColors.primary[400]],
-      background: ['#0F172A', '#1E293B'],
-      card: ['#1E293B', '#334155'],
-      accent: [BaseColors.primary[500], '#7C3AED'],
-      dark: ['#0F172A', '#1E293B'],
-      purple: ['#8B5CF6', '#A855F7'],
-      blue: ['#3B82F6', '#1D4ED8'],
-      green: ['#10B981', '#059669'],
-      warmDark: ['#1E293B', '#334155'],
-      coolDark: ['#1A202C', '#2D3748'],
+      primary: [BaseColors.primary[500], BaseColors.primary[400]] as const,
+      background: ['#0F172A', '#1E293B'] as const,
+      card: ['#1E293B', '#334155'] as const,
+      accent: [BaseColors.primary[500], '#7C3AED'] as const,
+      dark: ['#0F172A', '#1E293B'] as const,
+      purple: ['#8B5CF6', '#A855F7'] as const,
+      blue: ['#3B82F6', '#1D4ED8'] as const,
+      green: ['#10B981', '#059669'] as const,
+      warmDark: ['#1E293B', '#334155'] as const,
+      coolDark: ['#1A202C', '#2D3748'] as const,
     },
     success: BaseColors.success,
     warning: BaseColors.warning,
@@ -103,16 +103,16 @@ export const LightTheme = {
       focus: BaseColors.primary[500],
     },
     gradients: {
-      primary: [BaseColors.primary[500], BaseColors.primary[400]],
-      background: ['#FFFFFF', '#F8FBFF'],
-      card: ['#FFFFFF', '#F0F8FF'],
-      accent: [BaseColors.primary[300], BaseColors.primary[200]],
-      dark: ['#FFFFFF', '#F8FBFF'],
-      purple: ['#E6E6FA', '#D8BFD8'], // Açık mor tonları
-      blue: ['#E6F3FF', '#CCE7FF'], // Açık mavi tonları
-      green: ['#E8F5E8', '#D4EDDA'], // Açık yeşil tonları
-      warmDark: ['#F0F8FF', '#E6F3FF'], // Açık mavi warm tonları
-      coolDark: ['#F8FBFF', '#F0F8FF'], // Açık mavi cool tonları
+      primary: [BaseColors.primary[500], BaseColors.primary[400]] as const,
+      background: ['#FFFFFF', '#F8FBFF'] as const,
+      card: ['#FFFFFF', '#F0F8FF'] as const,
+      accent: [BaseColors.primary[300], BaseColors.primary[200]] as const,
+      dark: ['#FFFFFF', '#F8FBFF'] as const,
+      purple: ['#E6E6FA', '#D8BFD8'] as const, // Açık mor tonları
+      blue: ['#E6F3FF', '#CCE7FF'] as const, // Açık mavi tonları
+      green: ['#E8F5E8', '#D4EDDA'] as const, // Açık yeşil tonları
+      warmDark: ['#F0F8FF', '#E6F3FF'] as const, // Açık mavi warm tonları
+      coolDark: ['#F8FBFF', '#F0F8FF'] as const, // Açık mavi cool tonları
     },
     success: BaseColors.success,
     warning: BaseColors.warning,

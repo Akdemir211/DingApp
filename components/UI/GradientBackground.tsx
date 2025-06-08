@@ -5,7 +5,7 @@ import { Colors } from '@/constants/Theme';
 
 interface GradientBackgroundProps {
   children?: React.ReactNode;
-  colors?: string[];
+  colors?: readonly [string, string, ...string[]];
   style?: any;
   start?: { x: number; y: number };
   end?: { x: number; y: number };

@@ -42,6 +42,12 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
   const [attachmentMenuVisible, setAttachmentMenuVisible] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<{uri: string, type: 'image' | 'file', name: string} | null>(null);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
+  const [profilePhotoModal, setProfilePhotoModal] = useState<{visible: boolean, uri: string | null, userName: string, userId: string}>({
+    visible: false,
+    uri: null,
+    userName: '',
+    userId: ''
+  });
   const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -446,11 +452,21 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
         ]}
       >
         {!isOwnMessage && showAvatar && (
-          <ProfilePhoto 
-            uri={userInfo?.photoUrl}
-            size={28}
-            style={styles.avatar}
-          />
+          <TouchableOpacity 
+            onPress={() => setProfilePhotoModal({
+              visible: true,
+              uri: userInfo?.photoUrl || null,
+              userName: userInfo?.name || 'Kullanıcı',
+              userId: message.user_id
+            })}
+            activeOpacity={0.8}
+          >
+            <ProfilePhoto 
+              uri={userInfo?.photoUrl}
+              size={40}
+              style={styles.avatar}
+            />
+          </TouchableOpacity>
         )}
         <View style={[
           styles.messageContainer,
@@ -768,6 +784,62 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Profil Fotoğrafı Modal'ı */}
+      {profilePhotoModal.visible && (
+        <View style={styles.profileModal}>
+          <TouchableOpacity 
+            style={styles.profileModalBackground}
+            onPress={() => setProfilePhotoModal({visible: false, uri: null, userName: '', userId: ''})}
+            activeOpacity={1}
+          >
+            <View style={styles.profileModalContent}>
+              <TouchableOpacity 
+                style={styles.profileCloseButton}
+                onPress={() => setProfilePhotoModal({visible: false, uri: null, userName: '', userId: ''})}
+              >
+                <X size={24} color={theme.colors.text.primary} />
+              </TouchableOpacity>
+              
+              <View style={styles.profileModalHeader}>
+                <Text style={[styles.profileModalTitle, { color: theme.colors.text.primary }]}>
+                  {profilePhotoModal.userName}
+                </Text>
+              </View>
+              
+              <View style={styles.profilePhotoContainer}>
+                <ProfilePhoto 
+                  uri={profilePhotoModal.uri}
+                  size={200}
+                  style={styles.largeProfilePhoto}
+                />
+              </View>
+              
+              <View style={styles.profileModalActions}>
+                <TouchableOpacity 
+                  style={[styles.profileActionButton, { backgroundColor: theme.colors.background.card }]}
+                  onPress={() => {
+                    // Modal'ı kapat
+                    setProfilePhotoModal({visible: false, uri: null, userName: '', userId: ''});
+                    
+                    // Kullanıcı ID'sini kullan
+                    if (profilePhotoModal.userId) {
+                      // Profil sayfasına yönlendir
+                      router.push(`/user-profile?userId=${profilePhotoModal.userId}`);
+                    } else {
+                      console.log('Kullanıcı ID bulunamadı:', profilePhotoModal.userName);
+                    }
+                  }}
+                >
+                  <Text style={[styles.profileActionText, { color: theme.colors.text.primary }]}>
+                    Profili Görüntüle
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 };
@@ -852,7 +924,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   continuedMessage: {
-    marginLeft: 32,
+    marginLeft: 48,
   },
   messageBubble: {
     padding: Spacing.sm,
@@ -1077,5 +1149,75 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: BorderRadius.md,
+  },
+  // Profil Modal Stilleri
+  profileModal: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    zIndex: 1000,
+  },
+  profileModalBackground: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.xl,
+  },
+  profileModalContent: {
+    backgroundColor: Colors.background.elevated,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    maxWidth: '90%',
+    width: 320,
+    alignItems: 'center',
+    ...Shadows.large,
+  },
+  profileCloseButton: {
+    position: 'absolute',
+    top: Spacing.md,
+    right: Spacing.md,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.background.darker,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  profileModalHeader: {
+    alignItems: 'center',
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.xl,
+  },
+  profileModalTitle: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: FontSizes.xl,
+    textAlign: 'center',
+  },
+  profilePhotoContainer: {
+    alignItems: 'center',
+    marginBottom: Spacing.xl,
+  },
+  largeProfilePhoto: {
+    // Border kaldırıldı
+  },
+  profileModalActions: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  profileActionButton: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: BorderRadius.lg,
+    width: '100%',
+    alignItems: 'center',
+    ...Shadows.small,
+  },
+  profileActionText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: FontSizes.md,
   },
 });

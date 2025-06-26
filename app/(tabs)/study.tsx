@@ -513,8 +513,8 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: Spacing.lg,
+    paddingTop: 30, // Chat sayfasındaki gibi konumlandırma
     paddingBottom: Spacing.md,
-    paddingTop: 0,
   },
   headerContent: {
     flexDirection: 'row',

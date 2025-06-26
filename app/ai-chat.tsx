@@ -813,29 +813,52 @@ export default function AIChatScreen() {
       {/* Modern eğitim arka planı*/}
       <FloatingBubbleBackground />
       
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={24} color={Colors.text.primary} />
-        </TouchableOpacity>
-        
-        <View style={styles.aiCoachAvatar}>
-          <Image 
-            source={require('@/assets/images/icon.png')}
-            style={styles.robotImage}
-            resizeMode="contain"
-          />
+      <Animated.View 
+        style={styles.header}
+        entering={SlideInDown.duration(400)}
+      >
+        <View style={styles.headerBackground}>
+          <View style={styles.headerContent}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <ArrowLeft size={24} color={Colors.text.primary} />
+            </TouchableOpacity>
+            
+            <View style={styles.aiCoachSection}>
+              <View style={styles.aiCoachAvatar}>
+                <View style={styles.avatarGlow}>
+                  <Image 
+                    source={require('@/assets/images/ai-coach-robot.png')}
+                    style={styles.robotImage}
+                    resizeMode="contain"
+                  />
+                </View>
+                <View style={styles.statusIndicator} />
+              </View>
+              
+              <View style={styles.headerInfo}>
+                <Text style={styles.title}>AI Eğitim Koçu</Text>
+                <Text style={styles.subtitle}>
+                  {userInfo?.name ? `Merhaba ${userInfo.name}! 👋` : 'Öğrenme yolculuğunda yanındayım ✨'}
+                </Text>
+                <View style={styles.featuresRow}>
+                  <View style={styles.featureBadge}>
+                    <Text style={styles.featureText}>📚 Ders Yardımı</Text>
+                  </View>
+                  <View style={styles.featureBadge}>
+                    <Text style={styles.featureText}>🎯 Sınav Hazırlık</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+            
+            <TouchableOpacity onPress={handleClearChat} style={styles.clearButton}>
+              <View style={styles.clearButtonContent}>
+                <Trash size={18} color={Colors.text.secondary} />
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
-        
-        <View style={styles.headerInfo}>
-          <Text style={styles.title}>Eğitim Koçum</Text>
-          <Text style={styles.subtitle}>
-            {userInfo?.name ? `Merhaba ${userInfo.name} ` : ''}
-          </Text>
-        </View>
-        <TouchableOpacity onPress={handleClearChat} style={styles.clearButton}>
-          <Trash size={20} color={Colors.text.secondary} />
-        </TouchableOpacity>
-      </View>
+      </Animated.View>
 
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -1119,13 +1142,26 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background.dark,
   },
   header: {
+    paddingTop: 4,
+    paddingBottom: Spacing.xs,
+    backgroundColor: Colors.background.darker,
+  },
+  headerBackground: {
+    backgroundColor: 'rgba(100, 150, 255, 0.05)',
+    borderRadius: BorderRadius.lg,
+    margin: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.primary[400] + '20',
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: Spacing.lg,
-    paddingTop: Spacing.xxs,
-    backgroundColor: Colors.background.darker,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.darkGray[800],
+    padding: Spacing.md,
+  },
+  aiCoachSection: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   backButton: {
     width: 40,
@@ -1137,43 +1173,86 @@ const styles = StyleSheet.create({
     marginRight: Spacing.md,
   },
   aiCoachAvatar: {
-    width: 44,
-    height: 44,
+    position: 'relative',
+    marginRight: Spacing.md,
+  },
+  avatarGlow: {
+    width: 48,
+    height: 48,
     borderRadius: BorderRadius.round,
-    backgroundColor: 'rgba(100, 150, 255, 0.1)',
+    backgroundColor: 'rgba(100, 150, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: Spacing.md,
-    marginLeft: Spacing.sm,
     borderWidth: 2,
-    borderColor: Colors.primary[400] + '30',
+    borderColor: Colors.primary[400] + '40',
+    shadowColor: Colors.primary[400],
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  statusIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#00FF88',
+    borderWidth: 2,
+    borderColor: Colors.background.darker,
   },
   robotImage: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     borderRadius: BorderRadius.round,
   },
   headerInfo: {
     flex: 1,
+    marginLeft: Spacing.sm,
+  },
+  featuresRow: {
+    flexDirection: 'row',
+    marginTop: 2,
+    gap: Spacing.xs,
+  },
+  featureBadge: {
+    backgroundColor: 'rgba(100, 150, 255, 0.1)',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.primary[400] + '30',
+  },
+  featureText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 10,
+    color: Colors.primary[300],
   },
   clearButton: {
     width: 40,
     height: 40,
     borderRadius: BorderRadius.round,
-    backgroundColor: Colors.darkGray[800],
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.darkGray[600],
+  },
+  clearButtonContent: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   title: {
     fontFamily: 'Inter-Bold',
-    fontSize: FontSizes.xl,
+    fontSize: FontSizes.lg,
     color: Colors.text.primary,
   },
   subtitle: {
     fontFamily: 'Inter-Regular',
-    fontSize: FontSizes.sm,
+    fontSize: FontSizes.xs,
     color: Colors.text.secondary,
-    marginTop: 2,
+    marginTop: 1,
   },
   content: {
     flex: 1,
@@ -1461,31 +1540,36 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    zIndex: 1000,
   },
   imageModalBackground: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: Spacing.lg,
   },
   imageModalContent: {
     backgroundColor: Colors.background.darker,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    maxWidth: '80%',
-    maxHeight: '80%',
+    borderRadius: BorderRadius.lg,
+    maxWidth: '95%',
+    maxHeight: '85%',
+    width: '90%',
+    height: '70%',
     position: 'relative',
+    overflow: 'hidden',
   },
   closeButton: {
     position: 'absolute',
-    top: Spacing.xs,
-    right: Spacing.xs,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: Colors.error,
+    top: 10,
+    right: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1001,
   },
   enlargedImage: {
     width: '100%',

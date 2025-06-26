@@ -277,18 +277,17 @@ export default function WatchScreen() {
             style={styles.header}
             entering={SlideInDown.duration(600)}
           >
-            <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: theme.colors.background.elevated }]}>
-              <ArrowLeft size={24} color={theme.colors.text.primary} />
-            </TouchableOpacity>
-            <Text style={[styles.title, { color: theme.colors.text.primary }]}>Watch Room</Text>
-            <TouchableOpacity style={styles.createRoomButton} onPress={handleCreateRoom}>
-              <LinearGradient
-                colors={theme.colors.gradients.purple}
-                style={styles.createButtonGradient}
-              >
-                <Plus size={24} color={theme.colors.text.primary} />
-              </LinearGradient>
-            </TouchableOpacity>
+            <View style={styles.headerContent}>
+              <Text style={[styles.title, { color: theme.colors.text.primary }]}>Watch Room</Text>
+              <TouchableOpacity style={styles.createRoomButton} onPress={handleCreateRoom}>
+                <LinearGradient
+                  colors={theme.colors.gradients.purple}
+                  style={styles.createButtonGradient}
+                >
+                  <Plus size={24} color={theme.colors.text.primary} />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
           </Animated.View>
 
           {loading ? (
@@ -392,12 +391,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: 30, // Chat sayfasındaki gibi konumlandırma
+    paddingBottom: Spacing.md,
+  },
+  headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingTop: 0,
-    paddingBottom: Spacing.md,
   },
   backButton: {
     width: 40,
@@ -429,7 +430,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xxl,
   },
   sectionContainer: {
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.xl , // %75 azaltıldı (Spacing.xl'den %25'i kaldı)
   },
   sectionTitleContainer: {
     flexDirection: 'row',

@@ -1,9 +1,21 @@
-import React from 'react';
-import { Image, StyleSheet, TouchableOpacity, View, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { Image, StyleSheet, TouchableOpacity, View, Alert, Modal, Dimensions, StatusBar } from 'react-native';
 import { Colors } from '@/constants/Theme';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/context/AuthContext';
 import { uploadProfilePhoto } from '@/lib/profileService';
+import { X } from 'lucide-react-native';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withSpring,
+  FadeIn,
+  FadeOut,
+  SlideInDown,
+  SlideOutDown
+} from 'react-native-reanimated';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface ProfilePhotoProps {
   uri?: string | null;
@@ -12,6 +24,7 @@ interface ProfilePhotoProps {
   onPress?: () => void;
   editable?: boolean;
   onPhotoUpdated?: (url: string) => void;
+  allowFullscreen?: boolean;
 }
 
 export const ProfilePhoto: React.FC<ProfilePhotoProps> = ({
@@ -20,9 +33,11 @@ export const ProfilePhoto: React.FC<ProfilePhotoProps> = ({
   style,
   onPress,
   editable = false,
-  onPhotoUpdated
+  onPhotoUpdated,
+  allowFullscreen = false
 }) => {
   const { user } = useAuth();
+  const [showFullscreen, setShowFullscreen] = useState(false);
   const defaultPhoto = 'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1';
   
   const handlePress = async () => {
@@ -110,12 +125,14 @@ export const ProfilePhoto: React.FC<ProfilePhotoProps> = ({
           [{ text: 'Tamam' }]
         );
       }
+    } else if (allowFullscreen) {
+      setShowFullscreen(true);
     } else if (onPress) {
       onPress();
     }
   };
   
-  const isInteractive = editable || onPress;
+  const isInteractive = editable || onPress || allowFullscreen;
   
   return (
     <>
@@ -146,6 +163,47 @@ export const ProfilePhoto: React.FC<ProfilePhotoProps> = ({
           />
         </View>
       )}
+
+      {/* Fullscreen Modal */}
+      <Modal
+        visible={showFullscreen}
+        transparent={true}
+        animationType="none"
+        statusBarTranslucent={true}
+        onRequestClose={() => setShowFullscreen(false)}
+      >
+        <StatusBar barStyle="light-content" backgroundColor="rgba(0,0,0,0.9)" />
+        <Animated.View 
+          entering={FadeIn.duration(300)}
+          exiting={FadeOut.duration(300)}
+          style={styles.modalOverlay}
+        >
+          <TouchableOpacity 
+            style={styles.modalBackground}
+            activeOpacity={1}
+            onPress={() => setShowFullscreen(false)}
+          >
+            <Animated.View 
+              entering={SlideInDown.duration(400)}
+              exiting={SlideOutDown.duration(300)}
+              style={styles.modalContent}
+            >
+              <Image 
+                source={{ uri: uri || defaultPhoto }}
+                style={styles.fullscreenImage}
+                resizeMode="contain"
+              />
+            </Animated.View>
+
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={() => setShowFullscreen(false)}
+            >
+              <X size={30} color="#fff" />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Animated.View>
+      </Modal>
     </>
   );
 };
@@ -157,5 +215,35 @@ const styles = StyleSheet.create({
   image: {
     borderWidth: 3,
     borderColor: Colors.primary[500],
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+  },
+  modalBackground: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: StatusBar.currentHeight || 44,
+  },
+  modalContent: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT * 0.8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullscreenImage: {
+    width: SCREEN_WIDTH * 0.9,
+    height: SCREEN_WIDTH * 0.9,
+    borderRadius: 20,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 1000,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 25,
+    padding: 10,
   },
 });

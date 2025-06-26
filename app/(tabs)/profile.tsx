@@ -63,7 +63,8 @@ const StatCard = ({
   color = 'transparent',
   delay = 0,
   theme,
-  showDivider = false
+  showDivider = false,
+  onPress
 }: { 
   icon: React.ReactNode, 
   title: string, 
@@ -72,23 +73,29 @@ const StatCard = ({
   color?: string,
   delay?: number,
   theme: any,
-  showDivider?: boolean
+  showDivider?: boolean,
+  onPress?: () => void
 }) => {
   return (
     <Animated.View 
       entering={FadeIn.delay(delay).duration(400)}
-      style={styles.statItem}
+      style={[styles.statItem, { flex: 1 }]} // Kesin eşit genişlik için
     >
-      <View style={styles.statContent}>
+      <TouchableOpacity 
+        style={styles.statContent}
+        onPress={onPress}
+        disabled={!onPress}
+        activeOpacity={onPress ? 0.7 : 1}
+      >
         <View style={[styles.statIconContainer, { backgroundColor: color + '20' }]}>
           {icon}
         </View>
-        <Text style={[styles.statValue, { color: theme.colors.text.primary }]}>{value}</Text>
-        <Text style={[styles.statTitle, { color: theme.colors.text.primary }]}>{title}</Text>
+        <Text style={[styles.statValue, { color: theme.colors.text.primary }]} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
+        <Text style={[styles.statTitle, { color: theme.colors.text.secondary }]} numberOfLines={2}>{title}</Text>
         {subtitle && (
-          <Text style={[styles.statSubtitle, { color: theme.colors.text.secondary }]}>{subtitle}</Text>
+          <Text style={[styles.statSubtitle, { color: theme.colors.text.secondary }]} numberOfLines={2}>{subtitle}</Text>
         )}
-      </View>
+      </TouchableOpacity>
       {showDivider && (
         <View style={[styles.statDivider, { backgroundColor: theme.colors.border.primary }]} />
       )}
@@ -350,34 +357,44 @@ export default function ProfileScreen() {
       if (userError) throw userError;
       setUserData(userData);
 
-      // Çalışma süresi verilerini al - basit bir sorgu yapalım
+      // Çalışma süresi verilerini al (saniye cinsinden)
       const { data: studyData, error: studyError } = await supabase
-        .from('study_leaderboard')
-        .select('total_minutes')
+        .from('study_sessions')
+        .select('duration')
         .eq('user_id', user.id)
-        .maybeSingle();
+        .not('ended_at', 'is', null);
 
       if (!studyError && studyData) {
-        setTotalStudyTime((studyData as any)?.total_minutes || 0);
+        const totalSeconds = studyData.reduce((sum, session) => sum + (session.duration || 0), 0);
+        setTotalStudyTime(totalSeconds);
       }
 
-      // Mesaj sayısını al
-      const { count: messageCountData, error: messageError } = await supabase
+      // Mesaj sayısını al (hem chat hem watch room mesajları)
+      const { count: chatMessageCount } = await supabase
         .from('chat_messages')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id);
 
-      if (!messageError && messageCountData !== null) {
-        setMessageCount(messageCountData);
-      }
+      const { count: watchMessageCount } = await supabase
+        .from('watch_room_messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      const totalMessages = (chatMessageCount || 0) + (watchMessageCount || 0);
+      setMessageCount(totalMessages);
     } catch (error) {
       console.error('Kullanıcı verileri alınırken hata oluştu:', error);
     }
   };
 
-  const formatStudyTime = (minutes: number) => {
-    const hours = Math.floor(minutes / 60);
-    return `${hours}h ${minutes % 60}m`;
+  const formatStudyTime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    
+    if (hours > 0) {
+      return `${hours} saat ${minutes} dk`;
+    }
+    return `${minutes} dakika`;
   };
 
   // Pro yükselt fonksiyonu
@@ -478,6 +495,7 @@ export default function ProfileScreen() {
                       uri={profilePhotoUrl}
                       size={80}
                       style={styles.profilePhoto}
+                      allowFullscreen={true}
                     />
                     {userData?.is_pro && (
                       <View style={[styles.proIndicator, {
@@ -545,6 +563,8 @@ export default function ProfileScreen() {
                   color={theme.colors.medal.gold}
                   delay={900}
                   theme={theme}
+                  showDivider={false}
+                  onPress={() => router.push('/achievements')}
                 />
               </View>
             </Animated.View>
@@ -692,18 +712,29 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
-    paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.lg,
     marginHorizontal: Spacing.lg,
     ...Shadows.small,
+    height: 140, // Sabit yükseklik
+    overflow: 'hidden',
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.xs,
+    minHeight: 120, // Minimum yükseklik
+    maxWidth: '33.333%',
+    minWidth: 0,
   },
   statContent: {
     alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 4,
   },
   statIconContainer: {
     width: 36,
@@ -715,19 +746,29 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontFamily: 'Inter-Bold',
-    fontSize: FontSizes.lg,
+    fontSize: FontSizes.md,
     marginBottom: Spacing.xs,
+    textAlign: 'center',
+    width: '100%',
+    flexShrink: 1,
   },
   statTitle: {
     fontFamily: 'Inter-SemiBold',
-    fontSize: FontSizes.sm,
+    fontSize: 11, // Daha küçük font
     textAlign: 'center',
+    width: '100%',
+    lineHeight: 13,
+    flexWrap: 'wrap',
+    paddingHorizontal: 2,
   },
   statSubtitle: {
     fontFamily: 'Inter-Medium',
-    fontSize: 10,
+    fontSize: 9,
     textAlign: 'center',
     marginTop: Spacing.xs,
+    width: '100%',
+    lineHeight: 11,
+    paddingHorizontal: 2,
   },
   statDivider: {
     width: 1,
@@ -735,13 +776,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
     top: '20%',
+    opacity: 0.2,
   },
   settingsSection: {
     marginBottom: Spacing.lg,
     marginHorizontal: Spacing.lg,
   },
   settingsSectionTitle: {
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'Inter-Bold',
     fontSize: FontSizes.md,
     marginBottom: Spacing.sm,
     marginLeft: Spacing.xs,
@@ -793,7 +835,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    zIndex: 10000,
+    zIndex: 999,
     paddingTop: 50, // Add top padding for status bar
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.md,

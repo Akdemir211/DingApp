@@ -1241,7 +1241,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.xl,
-    paddingTop: 16,
+    paddingTop: 32, // Daha da aşağı konumlandırmak için daha da artırıldı
     paddingBottom: Spacing.md,
     borderBottomWidth: 1,
     elevation: 2,

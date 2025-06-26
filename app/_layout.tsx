@@ -56,6 +56,60 @@ function AppContent() {
               }} 
             />
             <Stack.Screen 
+              name="achievements" 
+              options={{ 
+                animation: 'slide_from_right',
+                animationDuration: 300,
+                gestureEnabled: true,
+                gestureDirection: 'horizontal',
+              }} 
+            />
+            <Stack.Screen 
+              name="ai-chat" 
+              options={{ 
+                animation: 'slide_from_right',
+                animationDuration: 300,
+                gestureEnabled: true,
+                gestureDirection: 'horizontal',
+              }} 
+            />
+            <Stack.Screen 
+              name="account-settings" 
+              options={{ 
+                animation: 'slide_from_right',
+                animationDuration: 300,
+                gestureEnabled: true,
+                gestureDirection: 'horizontal',
+              }} 
+            />
+            <Stack.Screen 
+              name="help-support" 
+              options={{ 
+                animation: 'slide_from_right',
+                animationDuration: 300,
+                gestureEnabled: true,
+                gestureDirection: 'horizontal',
+              }} 
+            />
+            <Stack.Screen 
+              name="notification-settings" 
+              options={{ 
+                animation: 'slide_from_right',
+                animationDuration: 300,
+                gestureEnabled: true,
+                gestureDirection: 'horizontal',
+              }} 
+            />
+            <Stack.Screen 
+              name="user-profile" 
+              options={{ 
+                animation: 'slide_from_right',
+                animationDuration: 300,
+                gestureEnabled: true,
+                gestureDirection: 'horizontal',
+              }} 
+            />
+            <Stack.Screen 
               name="+not-found" 
               options={{ 
                 presentation: 'modal',

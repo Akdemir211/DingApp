@@ -12,6 +12,7 @@ import * as AIChatService from '@/lib/aiChatService';
 import { ChatMessage, UserInfo } from '@/lib/aiChatService';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as DocumentPicker from 'expo-document-picker';
 import Animated, { 
   useSharedValue, 
@@ -22,6 +23,7 @@ import Animated, {
   Easing,
   SlideInDown
 } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // İlk selamlama mesajı
 const GREETING_MESSAGE: Omit<ChatMessage, 'id'> = {
@@ -671,10 +673,12 @@ export default function AIChatScreen() {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
+        allowsEditing: true, // iOS/Android yerleşik editör kullan
         allowsMultipleSelection: false,
-        quality: 0.8,
+        quality: 1.0, // Maksimum kalite
+        aspect: undefined, // Serbest aspect ratio
         presentationStyle: ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
+        selectionLimit: 1,
       });
 
       if (!result.canceled && result.assets[0]) {
@@ -683,7 +687,7 @@ export default function AIChatScreen() {
         
         setAttachmentMenuVisible(false);
         
-        // Direkt olarak fotoğrafı seç, dialog açma
+        // Galeri fotoğrafını kaydet (kırpılmış haliyle)
         setSelectedMedia({
           uri: asset.uri,
           type: 'image',
@@ -705,9 +709,10 @@ export default function AIChatScreen() {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
+        allowsEditing: true, // iOS/Android yerleşik editör kullan
         allowsMultipleSelection: false,
-        quality: 0.8,
+        quality: 1.0, // Maksimum kalite
+        aspect: undefined, // Serbest aspect ratio
         presentationStyle: ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
       });
 
@@ -717,7 +722,7 @@ export default function AIChatScreen() {
         
         setAttachmentMenuVisible(false);
         
-        // Direkt olarak fotoğrafı seç, dialog açma
+        // Kamera fotoğrafını kaydet (kırpılmış haliyle)
         setSelectedMedia({
           uri: asset.uri,
           type: 'image',
@@ -815,55 +820,42 @@ export default function AIChatScreen() {
       
       <Animated.View 
         style={styles.header}
-        entering={SlideInDown.duration(400)}
+        entering={SlideInDown.duration(600)}
       >
-        <View style={styles.headerBackground}>
-          <View style={styles.headerContent}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <ArrowLeft size={24} color={Colors.text.primary} />
-            </TouchableOpacity>
-            
-            <View style={styles.aiCoachSection}>
-              <View style={styles.aiCoachAvatar}>
-                <View style={styles.avatarGlow}>
-                  <Image 
-                    source={require('@/assets/images/ai-coach-robot.png')}
-                    style={styles.robotImage}
-                    resizeMode="contain"
-                  />
-                </View>
-                <View style={styles.statusIndicator} />
-              </View>
-              
-              <View style={styles.headerInfo}>
-                <Text style={styles.title}>AI Eğitim Koçu</Text>
-                <Text style={styles.subtitle}>
-                  {userInfo?.name ? `Merhaba ${userInfo.name}! 👋` : 'Öğrenme yolculuğunda yanındayım ✨'}
-                </Text>
-                <View style={styles.featuresRow}>
-                  <View style={styles.featureBadge}>
-                    <Text style={styles.featureText}>📚 Ders Yardımı</Text>
-                  </View>
-                  <View style={styles.featureBadge}>
-                    <Text style={styles.featureText}>🎯 Sınav Hazırlık</Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-            
-            <TouchableOpacity onPress={handleClearChat} style={styles.clearButton}>
-              <View style={styles.clearButtonContent}>
-                <Trash size={18} color={Colors.text.secondary} />
-              </View>
-            </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <ArrowLeft size={24} color={Colors.text.primary} />
+        </TouchableOpacity>
+        
+        <LinearGradient
+          colors={[Colors.primary[500] + '20', Colors.primary[400] + '10']}
+          style={styles.aiCoachContainer}
+        >
+          <View style={styles.aiCoachAvatar}>
+            <Image 
+              source={require('@/assets/images/ai-coach-robot.png')}
+              style={styles.robotImage}
+              resizeMode="contain"
+            />
+            <View style={styles.onlineIndicator} />
           </View>
-        </View>
+          
+          <View style={styles.headerInfo}>
+            <Text style={styles.title}>AI Eğitim Koçu</Text>
+            <Text style={styles.subtitle}>
+              {userInfo?.name ? `Merhaba ${userInfo.name}! Size nasıl yardımcı olabilirim?` : 'Her zaman yanınızda'}
+            </Text>
+          </View>
+        </LinearGradient>
+        
+        <TouchableOpacity onPress={handleClearChat} style={styles.clearButton}>
+          <Trash size={20} color={Colors.text.secondary} />
+        </TouchableOpacity>
       </Animated.View>
 
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.content}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        keyboardVerticalOffset={0}
       >
         {isLoadingHistory ? (
           <View style={styles.loadingContainer}>
@@ -877,64 +869,7 @@ export default function AIChatScreen() {
             contentContainerStyle={styles.messagesContent}
             onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
           >
-            {/* Görevler ve ödevler bölümü - Kompakt */}
-            {userInfo?.assignments && userInfo.assignments.length > 0 && (
-              <View style={styles.homeworkButtonContainer}>
-                <TouchableOpacity 
-                  style={styles.homeworkButton}
-                  onPress={() => setIsHomeworkExpanded(!isHomeworkExpanded)}
-                >
-                  <Text style={styles.homeworkButtonText}>
-                    Ödevlerim ({userInfo.assignments.length})
-                  </Text>
-                  <Text style={[styles.homeworkButtonArrow, isHomeworkExpanded && styles.homeworkButtonArrowRotated]}>
-                    ▼
-                  </Text>
-                </TouchableOpacity>
-                
-                {isHomeworkExpanded && (
-                  <Animated.View 
-                    style={styles.expandedHomework}
-                    entering={SlideInDown.duration(300)}
-                  >
-                    {userInfo.assignments.map((assignment) => (
-                      <View key={assignment.id} style={styles.assignmentItem}>
-                        <View style={styles.assignmentBadge}>
-                          <Text style={styles.assignmentSubject}>
-                            {assignment.subject.substring(0, 3)}
-                          </Text>
-                        </View>
-                        <View style={styles.assignmentContent}>
-                          <Text style={styles.assignmentText}>
-                            {assignment.description}
-                          </Text>
-                          <Text style={styles.assignmentDate}>
-                            {`Teslim: ${assignment.dueDate.toLocaleDateString('tr-TR')}`}
-                          </Text>
-                        </View>
-                        <TouchableOpacity 
-                          style={[
-                            styles.assignmentStatus, 
-                            assignment.isCompleted ? styles.assignmentCompleted : null
-                          ]}
-                          onPress={async () => {
-                            await AIChatService.updateAssignmentStatus(
-                              assignment.id, 
-                              !assignment.isCompleted
-                            );
-                            loadUserInfo();
-                          }}
-                        >
-                          <Text style={styles.assignmentStatusText}>
-                            {assignment.isCompleted ? '✓' : '○'}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </Animated.View>
-                )}
-              </View>
-            )}
+
             
             {messages.map((message) => {
               // Mesajın medya içeriği olup olmadığını kontrol et
@@ -1142,26 +1077,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background.dark,
   },
   header: {
-    paddingTop: 4,
-    paddingBottom: Spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+          padding: 16, // Header'ı dikey olarak kısalt
+      paddingTop: 8, // Header'ı biraz daha yukarı taşı
     backgroundColor: Colors.background.darker,
-  },
-  headerBackground: {
-    backgroundColor: 'rgba(100, 150, 255, 0.05)',
-    borderRadius: BorderRadius.lg,
-    margin: Spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.primary[400] + '20',
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: Spacing.md,
-  },
-  aiCoachSection: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.darkGray[800],
   },
   backButton: {
     width: 40,
@@ -1172,87 +1094,63 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: Spacing.md,
   },
-  aiCoachAvatar: {
-    position: 'relative',
-    marginRight: Spacing.md,
+  aiCoachContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.sm, // Container padding'ini de azalt
+    borderRadius: BorderRadius.lg,
+    marginHorizontal: Spacing.sm,
   },
-  avatarGlow: {
-    width: 48,
-    height: 48,
+  aiCoachAvatar: {
+    width: 44,
+    height: 44,
     borderRadius: BorderRadius.round,
-    backgroundColor: 'rgba(100, 150, 255, 0.15)',
+    backgroundColor: 'rgba(100, 150, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: Spacing.md,
     borderWidth: 2,
-    borderColor: Colors.primary[400] + '40',
-    shadowColor: Colors.primary[400],
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    borderColor: Colors.primary[400] + '30',
+    position: 'relative',
   },
-  statusIndicator: {
+  onlineIndicator: {
     position: 'absolute',
     bottom: 2,
     right: 2,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#00FF88',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: Colors.success,
     borderWidth: 2,
     borderColor: Colors.background.darker,
   },
   robotImage: {
-    width: 34,
-    height: 34,
+    width: 36,
+    height: 36,
     borderRadius: BorderRadius.round,
   },
   headerInfo: {
     flex: 1,
-    marginLeft: Spacing.sm,
-  },
-  featuresRow: {
-    flexDirection: 'row',
-    marginTop: 2,
-    gap: Spacing.xs,
-  },
-  featureBadge: {
-    backgroundColor: 'rgba(100, 150, 255, 0.1)',
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
-    borderWidth: 1,
-    borderColor: Colors.primary[400] + '30',
-  },
-  featureText: {
-    fontFamily: 'Inter-Medium',
-    fontSize: 10,
-    color: Colors.primary[300],
   },
   clearButton: {
     width: 40,
     height: 40,
     borderRadius: BorderRadius.round,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.darkGray[600],
-  },
-  clearButtonContent: {
+    backgroundColor: Colors.darkGray[800],
     justifyContent: 'center',
     alignItems: 'center',
   },
   title: {
     fontFamily: 'Inter-Bold',
-    fontSize: FontSizes.lg,
+    fontSize: FontSizes.xl,
     color: Colors.text.primary,
   },
   subtitle: {
     fontFamily: 'Inter-Regular',
-    fontSize: FontSizes.xs,
+    fontSize: FontSizes.sm,
     color: Colors.text.secondary,
-    marginTop: 1,
+    marginTop: 2,
   },
   content: {
     flex: 1,
@@ -1262,13 +1160,18 @@ const styles = StyleSheet.create({
   },
   messagesContent: {
     padding: Spacing.md,
+    paddingHorizontal: Spacing.md, // Mesajlar için normal kenar boşluğu
   },
   messageWrapper: {
     marginVertical: Spacing.xs,
-    maxWidth: '80%',
+    maxWidth: '85%', // Mesaj kutuları için biraz daha geniş alan
+    marginLeft: 0, // AI mesajları sol kenarda başlasın
+    marginRight: 'auto', // AI mesajları için sağ boşluk otomatik
   },
   userMessageWrapper: {
     alignSelf: 'flex-end',
+    marginLeft: 'auto', // Kullanıcı mesajları için sol boşluk otomatik
+    marginRight: 0, // Kullanıcı mesajları sağ kenarda bitsin
   },
   messageContainer: {
     padding: Spacing.sm,
@@ -1540,36 +1443,31 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    zIndex: 1000,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   imageModalBackground: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing.lg,
   },
   imageModalContent: {
     backgroundColor: Colors.background.darker,
-    borderRadius: BorderRadius.lg,
-    maxWidth: '95%',
-    maxHeight: '85%',
-    width: '90%',
-    height: '70%',
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    maxWidth: '80%',
+    maxHeight: '80%',
     position: 'relative',
-    overflow: 'hidden',
   },
   closeButton: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    top: Spacing.xs,
+    right: Spacing.xs,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.error,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1001,
   },
   enlargedImage: {
     width: '100%',

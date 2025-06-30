@@ -74,6 +74,7 @@ const VideoPlayer = ({
   const [localPlaying, setLocalPlaying] = useState(videoState.is_playing);
   const [currentTime, setCurrentTime] = useState(videoState.playback_time);
   const [playerReady, setPlayerReady] = useState(false);
+  const [apiLoaded, setApiLoaded] = useState(false);
   const scale = useSharedValue(1);
 
   // WebView hazır olduğunda parent'a bildir
@@ -87,310 +88,233 @@ const VideoPlayer = ({
     transform: [{ scale: scale.value }],
   }));
 
-  // WebView'a komut gönderme fonksiyonu
+  // WebView'a komut gönderme fonksiyonu - güvenli şekilde
   const sendPlayerCommand = (command: string, args?: any[]) => {
-    if (webViewRef.current && playerReady) {
-      const argsStr = args ? `, ${args.join(', ')}` : '';
-      webViewRef.current.injectJavaScript(`
+    if (webViewRef.current && playerReady && apiLoaded) {
+      const argsStr = args ? `, ${args.map(arg => JSON.stringify(arg)).join(', ')}` : '';
+      const script = `
         try {
-          if (window.${command}) {
-            window.${command}(${argsStr});
-            console.log('Command executed: ${command}');
+          if (window.ytPlayer && window.ytPlayer.${command}) {
+            window.ytPlayer.${command}(${argsStr});
+            console.log('[VideoPlayer] Command executed: ${command}');
+            true;
           } else {
-            console.log('Command not available: ${command}');
+            console.warn('[VideoPlayer] Command not available: ${command}');
+            false;
           }
         } catch (error) {
-          console.error('Command error:', error);
+          console.error('[VideoPlayer] Command error:', error);
+          false;
         }
-        true;
-      `);
+      `;
+      webViewRef.current.injectJavaScript(script);
+    } else {
+      console.warn('[VideoPlayer] Cannot send command - player not ready:', { playerReady, apiLoaded, command });
     }
   };
 
+  // Sadeleştirilmiş ve güvenilir JavaScript injection
   const injectedJavaScript = `
-    let player;
-    let isPlayerReady = false;
-    let pendingCommands = [];
-    const isCreator = ${isCreator};
-    
-    function onYouTubeIframeAPIReady() {
-      const iframe = document.querySelector('iframe');
-      if (iframe) {
-        player = new YT.Player(iframe, {
-          events: {
-            'onReady': onPlayerReady,
-            'onStateChange': onPlayerStateChange
-          }
-        });
-      }
-    }
-
-    function onPlayerReady(event) {
-      isPlayerReady = true;
-      console.log('YouTube Player Ready - isCreator:', isCreator);
+    (function() {
+      console.log('[VideoPlayer] Initializing - isCreator:', ${isCreator});
       
-      // İzleyiciler için kontrolleri tamamen devre dışı bırak
-      if (!isCreator) {
-        disableViewerControls();
-      }
+      let ytPlayer = null;
+      let playerState = -1;
+      let currentVideoTime = 0;
+      let isReady = false;
+      const isCreatorMode = ${isCreator};
       
-      // Bekleyen komutları çalıştır
-      pendingCommands.forEach(cmd => {
-        if (player && player[cmd.method]) {
-          player[cmd.method].apply(player, cmd.args);
-        }
-      });
-      pendingCommands = [];
+             // Video state gönderme fonksiyonu
+       function sendStateUpdate() {
+         if (ytPlayer && isReady) {
+           try {
+             const state = ytPlayer.getPlayerState();
+             const time = ytPlayer.getCurrentTime() || 0;
+             
+             // Her zaman state change gönder (creator için önemli)
+             if (state !== playerState || Math.abs(time - currentVideoTime) > 0.5) {
+               console.log('[VideoPlayer] State update - State:', state, 'Time:', time, 'IsCreator:', isCreatorMode);
+               playerState = state;
+               currentVideoTime = time;
+               
+               window.ReactNativeWebView.postMessage(JSON.stringify({
+                 type: 'stateChange',
+                 data: {
+                   state: state,
+                   time: time,
+                   isPlaying: state === 1
+                 }
+               }));
+             }
+           } catch (error) {
+             console.error('[VideoPlayer] State update error:', error);
+           }
+         }
+       }
       
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'playerReady'
-      }));
-    }
-
-    function disableViewerControls() {
-      // CSS ile kontrolleri gizle
-      const style = document.createElement('style');
-      style.textContent = \`
-        /* YouTube kontrol elementlerini tamamen gizle */
-        .ytp-chrome-bottom,
-        .ytp-chrome-top,
-        .ytp-show-cards-title,
-        .ytp-pause-overlay,
-        .ytp-player-content,
-        .ytp-gradient-bottom,
-        .ytp-gradient-top,
-        .ytp-chrome-controls,
-        .ytp-control-bar,
-        .ytp-progress-bar-container,
-        .ytp-time-display,
-        .ytp-volume-slider,
-        .ytp-mute-button,
-        .ytp-fullscreen-button,
-        .ytp-settings-button,
-        .ytp-play-button,
-        .ytp-pause-button,
-        .ytp-prev-button,
-        .ytp-next-button,
-        .ytp-big-mode .ytp-large-play-button,
-        .ytp-large-play-button,
-        .ytp-button,
-        .ytp-youtube-button,
-        .ytp-watermark,
-        .ytp-contextmenu,
-        .ytp-popup,
-        .ytp-tooltip,
-        .html5-endscreen,
-        .html5-player-chrome {
-          display: none !important;
-          visibility: hidden !important;
-          opacity: 0 !important;
-          pointer-events: none !important;
-        }
-        
-        /* Video container'a overlay ekle */
-        .html5-video-container {
-          pointer-events: none !important;
-          position: relative;
-        }
-        
-        /* Video player'ın kendisini de kontrol edilemez yap */
-        .html5-main-video {
-          pointer-events: none !important;
-        }
-        
-        /* İframe'i kontrol edilemez yap */
-        iframe {
-          pointer-events: none !important;
-        }
-        
-        /* Tüm YouTube player elementlerini engelle */
-        #movie_player,
-        .html5-video-player {
-          pointer-events: none !important;
-        }
-        
-        /* Mouse cursor'u değiştir - video üzerinde normal ok */
-        .html5-video-container,
-        .html5-main-video,
-        iframe,
-        #movie_player {
-          cursor: default !important;
-        }
-        
-        /* Viewer overlay - video üzerinde şeffaf engelleme katmanı */
-        .viewer-block-overlay {
-          position: absolute !important;
-          top: 0 !important;
-          left: 0 !important;
-          width: 100% !important;
-          height: 100% !important;
-          z-index: 999999 !important;
-          background: transparent !important;
-          pointer-events: auto !important;
-          cursor: default !important;
-        }
-      \`;
-      document.head.appendChild(style);
+      // Player event handlers
+             function onPlayerReady(event) {
+         console.log('[VideoPlayer] Player ready - isCreator:', isCreatorMode);
+         ytPlayer = event.target;
+         isReady = true;
+         
+         // Creator olmayan kullanıcılar için kontrolleri gizle
+         if (!isCreatorMode) {
+           try {
+             const style = document.createElement('style');
+             style.innerHTML = \`
+               .ytp-chrome-bottom,
+               .ytp-chrome-top,
+               .ytp-chrome-controls,
+               .ytp-control-bar,
+               .ytp-progress-bar-container,
+               .ytp-large-play-button {
+                 display: none !important;
+                 pointer-events: none !important;
+               }
+               
+               .html5-video-container {
+                 pointer-events: none !important;
+               }
+               
+               iframe {
+                 pointer-events: \${isCreatorMode ? 'auto' : 'none'} !important;
+               }
+             \`;
+             document.head.appendChild(style);
+           } catch (error) {
+             console.error('[VideoPlayer] Style injection error:', error);
+           }
+         }
+         
+         // İlk state'i hemen gönder
+         setTimeout(() => {
+           sendStateUpdate();
+         }, 100);
+         
+         // State monitoring başlat - daha sık kontrol et
+         setInterval(sendStateUpdate, 500);
+         
+         // Ready signal gönder
+         window.ReactNativeWebView.postMessage(JSON.stringify({
+           type: 'playerReady'
+         }));
+       }
+       
+       function onPlayerStateChange(event) {
+         console.log('[VideoPlayer] State changed:', event.data, 'IsCreator:', isCreatorMode);
+         // State değişikliği olduğunda hemen gönder
+         setTimeout(sendStateUpdate, 50);
+       }
       
-      // Video üzerine şeffaf engelleme katmanı ekle
-      setTimeout(() => {
-        const videoContainer = document.querySelector('#movie_player') || 
-                              document.querySelector('.html5-video-player') || 
-                              document.querySelector('.html5-video-container') ||
-                              document.body;
-        
-        if (videoContainer) {
-          const overlay = document.createElement('div');
-          overlay.className = 'viewer-block-overlay';
-          overlay.style.cssText = \`
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
-            z-index: 999999 !important;
-            background: transparent !important;
-            pointer-events: auto !important;
-            cursor: default !important;
-          \`;
-          
-          // Overlay'e tıklandığında hiçbir şey yapma
-          overlay.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            console.log('🚫 Viewer click blocked by overlay');
-            return false;
-          }, true);
-          
-          overlay.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            return false;
-          }, true);
-          
-          overlay.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            return false;
-          }, true);
-          
-          if (videoContainer.style) {
-            videoContainer.style.position = 'relative';
-          }
-          videoContainer.appendChild(overlay);
-          console.log('🔒 Viewer blocking overlay added');
-        }
-      }, 1000);
-      
-      // Tüm event'leri engelle - daha agresif
-      const blockEvent = function(e) {
-        if (!isCreator) {
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-          return false;
+      // Global functions for external control
+      window.ytPlayer = null;
+      window.playVideo = function() {
+        if (ytPlayer && isReady) {
+          ytPlayer.playVideo();
+          console.log('[VideoPlayer] Play command executed');
         }
       };
       
-      // Tüm mouse event'lerini engelle
-      ['click', 'mousedown', 'mouseup', 'mousemove', 'dblclick', 'contextmenu'].forEach(eventType => {
-        document.addEventListener(eventType, blockEvent, true);
-      });
-      
-      // Tüm touch event'lerini engelle
-      ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(eventType => {
-        document.addEventListener(eventType, blockEvent, true);
-      });
-      
-      // Keyboard event'leri engelle
-      ['keydown', 'keyup', 'keypress'].forEach(eventType => {
-        document.addEventListener(eventType, blockEvent, true);
-      });
-      
-      // Focus event'lerini engelle
-      ['focus', 'blur', 'focusin', 'focusout'].forEach(eventType => {
-        document.addEventListener(eventType, blockEvent, true);
-      });
-      
-      console.log('🔒 All viewer controls completely disabled');
-    }
-
-    function onPlayerStateChange(event) {
-      const currentTime = player ? player.getCurrentTime() : 0;
-      console.log('Player state changed:', event.data, 'time:', currentTime, 'isCreator:', isCreator);
-      
-      // İzleyiciler state değişikliklerini yapamazsa, sadece oda sahibi değişiklik yapabilir
-      if (!isCreator) {
-        // İzleyici bir değişiklik yapmaya çalışıyorsa geri al
-        console.log('🚫 Viewer attempted state change - blocking');
-        return;
-      }
-      
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'stateChange',
-        data: {
-          state: event.data,
-          time: currentTime
+      window.pauseVideo = function() {
+        if (ytPlayer && isReady) {
+          ytPlayer.pauseVideo();
+          console.log('[VideoPlayer] Pause command executed');
         }
-      }));
-    }
-
-    function executeCommand(method, args = []) {
-      if (isPlayerReady && player && player[method]) {
-        console.log('Executing command:', method, args);
-        player[method].apply(player, args);
-      } else {
-        console.log('Queueing command:', method, args);
-        pendingCommands.push({ method, args });
+      };
+      
+      window.seekTo = function(seconds, allowSeekAhead) {
+        if (ytPlayer && isReady) {
+          ytPlayer.seekTo(seconds, allowSeekAhead !== false);
+          console.log('[VideoPlayer] Seek command executed:', seconds);
+        }
+      };
+      
+      // YouTube API yükleme
+      function loadYouTubeAPI() {
+        if (window.YT && window.YT.Player) {
+          console.log('[VideoPlayer] YouTube API already loaded');
+          initializePlayer();
+          return;
+        }
+        
+        window.onYouTubeIframeAPIReady = function() {
+          console.log('[VideoPlayer] YouTube API ready');
+          initializePlayer();
+        };
+        
+        if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
+          const script = document.createElement('script');
+          script.src = 'https://www.youtube.com/iframe_api';
+          script.async = true;
+          document.head.appendChild(script);
+          console.log('[VideoPlayer] YouTube API script added');
+        }
       }
-    }
-
-    // Global fonksiyonlar - sadece programmatic kullanım için
-    window.playVideo = () => executeCommand('playVideo');
-    window.pauseVideo = () => executeCommand('pauseVideo');
-    window.seekTo = (seconds) => executeCommand('seekTo', [seconds, true]);
-    window.getPlayerState = () => player ? player.getPlayerState() : -1;
-    window.getCurrentTime = () => player ? player.getCurrentTime() : 0;
-
-    // YouTube API'yi yükle
-    if (!window.YT) {
-      var tag = document.createElement('script');
-      tag.src = "https://www.youtube.com/iframe_api";
-      var firstScriptTag = document.getElementsByTagName('script')[0];
-      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-    } else {
-      onYouTubeIframeAPIReady();
-    }
-
+      
+      function initializePlayer() {
+        try {
+          const iframe = document.querySelector('iframe');
+          if (iframe && window.YT && window.YT.Player) {
+            window.ytPlayer = new window.YT.Player(iframe, {
+              events: {
+                'onReady': onPlayerReady,
+                'onStateChange': onPlayerStateChange
+              }
+            });
+            console.log('[VideoPlayer] Player initialized');
+          } else {
+            console.error('[VideoPlayer] Cannot initialize - missing elements');
+          }
+        } catch (error) {
+          console.error('[VideoPlayer] Player initialization error:', error);
+        }
+      }
+      
+      // DOM ready olduğunda başlat
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadYouTubeAPI);
+      } else {
+        setTimeout(loadYouTubeAPI, 100);
+      }
+      
+    })();
     true;
   `;
 
   const handleMessage = (event: any) => {
     try {
       const message = JSON.parse(event.nativeEvent.data);
+      console.log('[VideoPlayer] Message received:', message.type, message);
       
       if (message.type === 'playerReady') {
         console.log('✅ YouTube Player Ready - Syncing video state');
         setPlayerReady(true);
+        setApiLoaded(true);
+        
         // Player hazır olduğunda mevcut durumu sync et
-        setTimeout(() => syncVideoState(), 500);
+        setTimeout(() => syncVideoState(), 1000);
       }
       
       if (message.type === 'stateChange') {
         const isPlaying = message.data.state === 1; // 1 = playing, 2 = paused
-        const currentTime = message.data.time;
+        const currentTime = message.data.time || 0;
         
-        console.log('🎮 Player state change:', { isPlaying, currentTime, isCreator });
+        console.log('🎮 Player state change:', { 
+          state: message.data.state,
+          isPlaying, 
+          currentTime, 
+          isCreator,
+          previousLocalPlaying: localPlaying 
+        });
         
+        // Local state'i hemen güncelle
         setLocalPlaying(isPlaying);
         setCurrentTime(currentTime);
         
         // Sadece oda sahibi değişiklikleri veritabanına kaydet
         if (isCreator) {
-          console.log('👑 Creator updating database state');
+          console.log('👑 Creator updating database state:', { is_playing: isPlaying, playback_time: currentTime });
           onStateChange({
             is_playing: isPlaying,
             playback_time: currentTime
@@ -403,8 +327,8 @@ const VideoPlayer = ({
   };
 
   const syncVideoState = () => {
-    if (!webViewRef.current || !playerReady) {
-      console.log('⏳ Cannot sync - player not ready');
+    if (!webViewRef.current || !playerReady || !apiLoaded) {
+      console.log('⏳ Cannot sync - player not ready:', { playerReady, apiLoaded });
       return;
     }
 
@@ -412,7 +336,9 @@ const VideoPlayer = ({
 
     // Önce zamanı sync et
     if (videoState.playback_time > 0) {
-      sendPlayerCommand('seekTo', [videoState.playback_time]);
+      setTimeout(() => {
+        sendPlayerCommand('seekTo', [videoState.playback_time, true]);
+      }, 100);
     }
     
     // Sonra play/pause durumunu sync et
@@ -422,21 +348,33 @@ const VideoPlayer = ({
       } else {
         sendPlayerCommand('pauseVideo');
       }
-    }, 200);
+    }, 300);
   };
 
-  // Video state değişikliklerini dinle (diğer kullanıcılar için)
+  // Video state değişikliklerini dinle (tüm kullanıcılar için)
   useEffect(() => {
-    console.log('📺 Video state changed:', videoState, 'isCreator:', isCreator);
+    console.log('📺 Video state changed:', videoState, 'isCreator:', isCreator, 'localPlaying:', localPlaying);
     
-    setLocalPlaying(videoState.is_playing);
-    setCurrentTime(videoState.playback_time);
-    
-    if (!isCreator && playerReady) {
-      // Küçük bir gecikme ile sync et
-      setTimeout(syncVideoState, 200);
+    // Remote state değişikliği geldiğinde local state'i de güncelle
+    if (videoState.is_playing !== localPlaying) {
+      console.log('🔄 Updating local state from remote:', { 
+        remote: videoState.is_playing, 
+        local: localPlaying,
+        willUpdate: true
+      });
+      setLocalPlaying(videoState.is_playing);
     }
-  }, [videoState, isCreator, playerReady]);
+    
+    if (Math.abs(videoState.playback_time - currentTime) > 1) {
+      setCurrentTime(videoState.playback_time);
+    }
+    
+    // İzleyiciler için player sync
+    if (!isCreator && playerReady && apiLoaded) {
+      console.log('👥 Viewer syncing to remote state');
+      setTimeout(syncVideoState, 150);
+    }
+  }, [videoState, isCreator, playerReady, apiLoaded]);
 
   return (
     <Animated.View style={[styles.videoContainer, animatedStyle]}>
@@ -459,6 +397,16 @@ const VideoPlayer = ({
                   {Math.floor(currentTime / 60)}:{String(Math.floor(currentTime % 60)).padStart(2, '0')}
                 </Text>
               )}
+              {playerReady && apiLoaded && (
+                <View style={[styles.readyIndicator, { backgroundColor: theme.colors.success }]}>
+                  <Text style={[styles.readyText, { color: theme.colors.text.primary }]}>●</Text>
+                </View>
+              )}
+              {__DEV__ && (
+                <Text style={[styles.debugText, { color: theme.colors.text.secondary, marginLeft: 8 }]}>
+                  L:{localPlaying ? '1' : '0'} R:{videoState.is_playing ? '1' : '0'}
+                </Text>
+              )}
             </View>
           </View>
           {!isCreator && (
@@ -475,15 +423,19 @@ const VideoPlayer = ({
             source={{ uri: embedUrl }}
             style={styles.webView}
             allowsFullscreenVideo={isCreator}
-            allowsInlineMediaPlayback
-            mediaPlaybackRequiresUserAction={!isCreator}
-            javaScriptEnabled
+            allowsInlineMediaPlayback={true}
+            mediaPlaybackRequiresUserAction={false}
+            javaScriptEnabled={true}
             injectedJavaScript={injectedJavaScript}
             onMessage={handleMessage}
             userAgent={isCreator ? undefined : "Mozilla/5.0 (compatible; SyncWatch-Viewer/1.0)"}
             onLoad={() => {
-              console.log('WebView loaded, syncing video state...');
-              setTimeout(syncVideoState, 1000);
+              console.log('[VideoPlayer] WebView loaded');
+              setPlayerReady(false);
+              setApiLoaded(false);
+            }}
+            onLoadEnd={() => {
+              console.log('[VideoPlayer] WebView load ended, waiting for player...');
             }}
             scalesPageToFit={false}
             bounces={false}
@@ -498,6 +450,9 @@ const VideoPlayer = ({
               }
               return true;
             }}
+            onError={(error) => {
+              console.error('[VideoPlayer] WebView error:', error);
+            }}
           />
           
           {!isCreator && (
@@ -507,17 +462,7 @@ const VideoPlayer = ({
               onPress={() => {
                 console.log('🚫 Viewer touch blocked by React Native overlay');
               }}
-              onLongPress={() => {
-                console.log('🚫 Viewer long press blocked');
-              }}
-              onPressIn={() => {
-                console.log('🚫 Viewer press in blocked');
-              }}
-              onPressOut={() => {
-                console.log('🚫 Viewer press out blocked');
-              }}
-            >
-            </TouchableOpacity>
+            />
           )}
         </View>
       </GradientCard>
@@ -536,17 +481,17 @@ const getEmbedUrl = (url: string, isCreator: boolean = false) => {
   
   if (videoId) {
     if (isCreator) {
-      // Creator için tam kontrol
-      return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&playsinline=1&modestbranding=1&rel=0&fs=1&controls=1&disablekb=0&iv_load_policy=3`;
+      // Creator için optimized kontrol
+      return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&playsinline=1&modestbranding=1&rel=0&fs=1&controls=1&iv_load_policy=3&origin=${encodeURIComponent(window?.location?.origin || 'https://localhost')}`;
     } else {
-      // İzleyiciler için minimal kontrol - tamamen devre dışı
-      return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&playsinline=1&modestbranding=1&rel=0&fs=0&controls=0&disablekb=1&iv_load_policy=3&showinfo=0&cc_load_policy=0&autoplay=0&start=0&end=0&loop=0&mute=0`;
+      // İzleyiciler için tamamen kontrol edilemez - sadeleştirilmiş
+      return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&playsinline=1&modestbranding=1&rel=0&fs=0&controls=0&disablekb=1&iv_load_policy=3&showinfo=0&autoplay=0`;
     }
   }
   
   if (url.includes('vimeo.com')) {
     const vimeoId = url.split('vimeo.com/')[1]?.split('?')[0];
-    const controls = isCreator ? 'true' : 'false';
+    const controls = isCreator ? '1' : '0';
     return `https://player.vimeo.com/video/${vimeoId}?playsinline=1&controls=${controls}&autoplay=0`;
   }
   
@@ -684,16 +629,31 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
     }
   }, [users]);
 
-  const loadUsers = async () => {
+  const loadUsers = async (retryCount = 0) => {
+    const maxRetries = 2;
+    const timeoutMs = 5000; // 5 saniye timeout
+    
     try {
+      console.log(`[loadUsers] Attempting to load users (retry: ${retryCount})`);
+      
+      // AbortController ile timeout kontrolü
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+        console.log('[loadUsers] Request aborted due to timeout');
+      }, timeoutMs);
+      
       const { data: profiles, error } = await supabase
         .from('profiles')
-        .select('user_id, id, name, photo_url');
+        .select('user_id, id, name, photo_url')
+        .abortSignal(controller.signal);
+      
+      clearTimeout(timeoutId);
       
       if (error) {
         // Eğer profiles tablosu yoksa, kullanıcı bilgilerini auth'dan al
         if (error.code === '42P01') {
-          console.log('Profiles table not found, using fallback');
+          console.log('[loadUsers] Profiles table not found, using fallback');
           const fallbackUsers: {[key: string]: {name: string, photoUrl: string | null}} = {};
           if (user) {
             fallbackUsers[user.id] = {
@@ -704,8 +664,14 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
           setUsers(fallbackUsers);
           return;
         }
-        console.error('Error loading users:', error);
-        return;
+        
+        // Network error ise retry
+        if (error.message?.includes('network') || error.message?.includes('timeout')) {
+          throw new Error(`Network error: ${error.message}`);
+        }
+        
+        console.error('[loadUsers] Database error:', error);
+        throw error;
       }
 
       if (profiles && Array.isArray(profiles)) {
@@ -716,54 +682,111 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
             photoUrl: profile.photo_url
           };
         });
+        console.log(`[loadUsers] Successfully loaded ${Object.keys(userMap).length} users`);
         setUsers(userMap);
       }
-    } catch (error) {
-      console.error('Error in loadUsers:', error);
+    } catch (error: any) {
+      console.error(`[loadUsers] Error (attempt ${retryCount + 1}):`, error.message || error);
+      
+      // Network hatası ve retry hakkı varsa tekrar dene
+      if (retryCount < maxRetries && (
+        error.name === 'AbortError' ||
+        error.message?.includes('network') || 
+        error.message?.includes('timeout') ||
+        error.message?.includes('fetch')
+      )) {
+        console.log(`[loadUsers] Retrying in ${(retryCount + 1) * 1000}ms...`);
+        setTimeout(() => {
+          loadUsers(retryCount + 1);
+        }, (retryCount + 1) * 1000); // Artan gecikme: 1s, 2s
+        return;
+      }
+      
       // Fallback: Sadece mevcut kullanıcı bilgisini kullan
+      console.log('[loadUsers] Using fallback user data');
       if (user) {
-        setUsers({
-          [user.id]: {
-            name: user.user_metadata?.name || user.email || 'Kullanıcı',
-            photoUrl: null
-          }
-        });
+        const fallbackUsers: {[key: string]: {name: string, photoUrl: string | null}} = {};
+        fallbackUsers[user.id] = {
+          name: user.user_metadata?.name || user.email || 'Kullanıcı',
+          photoUrl: null
+        };
+        setUsers(fallbackUsers);
+      } else {
+        // Hiç kullanıcı yoksa boş obje
+        setUsers({});
       }
     }
   };
 
-  const fetchVideoState = async () => {
+  const fetchVideoState = async (retryCount = 0) => {
+    const maxRetries = 1;
+    const timeoutMs = 3000; // 3 saniye timeout
+    
     try {
+      console.log(`[fetchVideoState] Fetching video state (retry: ${retryCount})`);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, timeoutMs);
+      
       const { data, error } = await supabase
         .from('watch_room_video_state')
         .select('is_playing, playback_time')
         .eq('room_id', roomId)
+        .abortSignal(controller.signal)
         .single();
+
+      clearTimeout(timeoutId);
 
       if (error) {
         // Eğer tablo yoksa veya kayıt yoksa, varsayılan durum kullan
         if (error.code === '42P01' || error.code === 'PGRST116') {
-          console.log('Video state table/record not found, using default state');
+          console.log('[fetchVideoState] Video state table/record not found, using default state');
           setVideoState({ is_playing: false, playback_time: 0 });
           return;
         }
-        console.error('Error fetching video state:', error);
-        return;
+        
+        if (error.message?.includes('network') || error.message?.includes('timeout')) {
+          throw new Error(`Network error: ${error.message}`);
+        }
+        
+        console.error('[fetchVideoState] Database error:', error);
+        throw error;
       }
 
       if (data) {
         const videoData = data as any;
-        setVideoState({
+        const newState = {
           is_playing: Boolean(videoData.is_playing),
           playback_time: Number(videoData.playback_time) || 0
-        });
+        };
+        console.log('[fetchVideoState] Successfully fetched video state:', newState);
+        setVideoState(newState);
       }
-    } catch (error) {
-      console.error('Error in fetchVideoState:', error);
+    } catch (error: any) {
+      console.error(`[fetchVideoState] Error (attempt ${retryCount + 1}):`, error.message || error);
+      
+      if (retryCount < maxRetries && (
+        error.name === 'AbortError' ||
+        error.message?.includes('network') || 
+        error.message?.includes('timeout')
+      )) {
+        console.log(`[fetchVideoState] Retrying in ${(retryCount + 1) * 1000}ms...`);
+        setTimeout(() => {
+          fetchVideoState(retryCount + 1);
+        }, (retryCount + 1) * 1000);
+        return;
+      }
+      
+      console.log('[fetchVideoState] Using default video state');
       setVideoState({ is_playing: false, playback_time: 0 });
     }
   };
 
+  // Debounce için timeout ref
+  const updateTimeoutRef = useRef<number | null>(null);
+  
   const updateVideoState = async (newState: VideoState) => {
     if (!isCreator) {
       console.log('❌ Only room creator can update video state');
@@ -772,52 +795,96 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
     
     console.log('🔄 Updating video state in database:', newState);
     
-    try {
-      const { data, error } = await supabase
-        .from('watch_room_video_state')
-        .upsert({
-          room_id: roomId,
-          is_playing: newState.is_playing,
-          playback_time: newState.playback_time
-        }, {
-          onConflict: 'room_id'
-        })
-        .select();
-
-      if (error) {
-        // Eğer tablo yoksa log yaz ama hata verme
-        if (error.code === '42P01') {
-          console.log('⚠️ Video state table not found, video sync disabled');
-          return;
-        }
-        console.error('❌ Error updating video state:', error);
-        setError('Video durumu güncellenirken hata oluştu');
-      } else {
-        console.log('✅ Video state updated successfully:', data);
-      }
-    } catch (error) {
-      console.error('❌ Error in updateVideoState:', error);
-      // Hata durumunda da devam et
+    // Önceki timeout'u iptal et
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
     }
+    
+    // Debounce - 200ms bekle (daha responsive)
+    updateTimeoutRef.current = setTimeout(async () => {
+      const timeoutMs = 3000; // 3 saniye timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, timeoutMs);
+      
+      try {
+        console.log('[updateVideoState] Updating video state:', newState);
+        
+        const { data, error } = await supabase
+          .from('watch_room_video_state')
+          .upsert({
+            room_id: roomId,
+            is_playing: newState.is_playing,
+            playback_time: Math.round(newState.playback_time) // Saniye cinsinden yuvarlama
+          }, {
+            onConflict: 'room_id'
+          })
+          .abortSignal(controller.signal)
+          .select();
+
+        clearTimeout(timeoutId);
+
+        if (error) {
+          // Eğer tablo yoksa log yaz ama hata verme
+          if (error.code === '42P01') {
+            console.log('[updateVideoState] Video state table not found, video sync disabled');
+            return;
+          }
+          console.error('[updateVideoState] Database error:', error);
+          setError('Video durumu güncellenirken hata oluştu');
+        } else {
+          console.log('[updateVideoState] Video state updated successfully:', data);
+        }
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        
+        if (error.name === 'AbortError') {
+          console.error('[updateVideoState] Update timeout');
+          setError('Video durumu güncelleme zaman aşımı');
+        } else {
+          console.error('[updateVideoState] Update error:', error.message || error);
+          // Hata durumunda da devam et - video sync sorunları app'i durdurmamalı
+        }
+      }
+    }, 200);
   };
 
-  const fetchMessages = async () => {
+  const fetchMessages = async (retryCount = 0) => {
+    const maxRetries = 1;
+    const timeoutMs = 4000; // 4 saniye timeout
+    
     try {
+      console.log(`[fetchMessages] Fetching messages (retry: ${retryCount})`);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, timeoutMs);
+      
       const { data, error } = await supabase
         .from('watch_room_messages')
         .select('*')
         .eq('room_id', roomId)
+        .abortSignal(controller.signal)
         .order('created_at', { ascending: true });
+
+      clearTimeout(timeoutId);
 
       if (error) {
         // Eğer tablo yoksa boş mesaj listesi kullan
         if (error.code === '42P01') {
-          console.log('Messages table not found, using empty messages');
+          console.log('[fetchMessages] Messages table not found, using empty messages');
           setMessages([]);
           return;
         }
-        console.error('Error fetching messages:', error);
-        return;
+        
+        if (error.message?.includes('network') || error.message?.includes('timeout')) {
+          throw new Error(`Network error: ${error.message}`);
+        }
+        
+        console.error('[fetchMessages] Database error:', error);
+        throw error;
       }
 
       if (data && Array.isArray(data)) {
@@ -828,38 +895,86 @@ export const WatchRoom: React.FC<WatchRoomProps> = ({ roomId, room, onClose }) =
           created_at: msg.created_at,
           userName: users[msg.user_id]?.name || 'Kullanıcı'
         }));
+        console.log(`[fetchMessages] Successfully loaded ${messagesWithUsernames.length} messages`);
         setMessages(messagesWithUsernames);
         setTimeout(scrollToBottom, 100);
       }
-    } catch (error) {
-      console.error('Error in fetchMessages:', error);
+    } catch (error: any) {
+      console.error(`[fetchMessages] Error (attempt ${retryCount + 1}):`, error.message || error);
+      
+      if (retryCount < maxRetries && (
+        error.name === 'AbortError' ||
+        error.message?.includes('network') || 
+        error.message?.includes('timeout')
+      )) {
+        console.log(`[fetchMessages] Retrying in ${(retryCount + 1) * 1000}ms...`);
+        setTimeout(() => {
+          fetchMessages(retryCount + 1);
+        }, (retryCount + 1) * 1000);
+        return;
+      }
+      
+      console.log('[fetchMessages] Using empty messages array');
       setMessages([]);
     }
   };
 
-  const fetchMembers = async () => {
+  const fetchMembers = async (retryCount = 0) => {
+    const maxRetries = 1;
+    const timeoutMs = 3000; // 3 saniye timeout
+    
     try {
+      console.log(`[fetchMembers] Fetching members (retry: ${retryCount})`);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, timeoutMs);
+      
       const { data, error } = await supabase
         .from('watch_room_members')
         .select('user_id')
-        .eq('room_id', roomId);
+        .eq('room_id', roomId)
+        .abortSignal(controller.signal);
+
+      clearTimeout(timeoutId);
 
       if (error) {
         // Eğer tablo yoksa boş dizi kullan
         if (error.code === '42P01') {
-          console.log('Members table not found, using empty array');
+          console.log('[fetchMembers] Members table not found, using empty array');
           setMembers([]);
           return;
         }
-        console.error('Error fetching members:', error);
-        return;
+        
+        if (error.message?.includes('network') || error.message?.includes('timeout')) {
+          throw new Error(`Network error: ${error.message}`);
+        }
+        
+        console.error('[fetchMembers] Database error:', error);
+        throw error;
       }
 
       if (data && Array.isArray(data)) {
+        console.log(`[fetchMembers] Successfully loaded ${data.length} members`);
         setMembers(data);
       }
-    } catch (error) {
-      console.error('Error in fetchMembers:', error);
+    } catch (error: any) {
+      console.error(`[fetchMembers] Error (attempt ${retryCount + 1}):`, error.message || error);
+      
+      if (retryCount < maxRetries && (
+        error.name === 'AbortError' ||
+        error.message?.includes('network') || 
+        error.message?.includes('timeout')
+      )) {
+        console.log(`[fetchMembers] Retrying in ${(retryCount + 1) * 1000}ms...`);
+        setTimeout(() => {
+          fetchMembers(retryCount + 1);
+        }, (retryCount + 1) * 1000);
+        return;
+      }
+      
+      console.log('[fetchMembers] Using empty members array');
       setMembers([]);
     }
   };
@@ -1241,7 +1356,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.xl,
-    paddingTop: 32, // Daha da aşağı konumlandırmak için daha da artırıldı
+    paddingTop: Spacing.xxl, // Header'ı daha aşağı konumlandır
     paddingBottom: Spacing.md,
     borderBottomWidth: 1,
     elevation: 2,
@@ -1313,7 +1428,8 @@ const styles = StyleSheet.create({
   },
   videoContainer: {
     marginHorizontal: 18,
-    marginVertical: 12,
+    marginTop: 0, // Header ile video arasındaki boşluk ultra minimum
+    marginBottom: 12,
   },
   videoCard: {
     padding: Spacing.lg,
@@ -1373,7 +1489,7 @@ const styles = StyleSheet.create({
   },
   chatSection: {
     margin: Spacing.lg,
-    marginTop: Spacing.md,
+    marginTop: Spacing.xs, // Video ile chat arasındaki boşluk minimize
   },
   chatCard: {
     padding: Spacing.lg,
@@ -1610,5 +1726,21 @@ const styles = StyleSheet.create({
   profileActionText: {
     fontFamily: 'Inter-SemiBold',
     fontSize: FontSizes.md,
+  },
+  readyIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginLeft: Spacing.xs,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  readyText: {
+    fontSize: 6,
+    fontFamily: 'Inter-Bold',
+  },
+  debugText: {
+    fontSize: 8,
+    fontFamily: 'Inter-Regular',
   },
 });

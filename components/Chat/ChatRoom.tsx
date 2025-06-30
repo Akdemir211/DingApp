@@ -18,6 +18,7 @@ import { Database } from '@/types/supabase';
 import { supabase } from '@/lib/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as DocumentPicker from 'expo-document-picker';
 
 type Message = Database['public']['Tables']['chat_messages']['Row'];
@@ -243,10 +244,12 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
+        allowsEditing: true, // iOS/Android yerleşik editör kullan
         allowsMultipleSelection: false,
-        quality: 0.8,
+        quality: 1.0, // Maksimum kalite
+        aspect: undefined, // Serbest aspect ratio
         presentationStyle: ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
+        selectionLimit: 1,
       });
 
       if (!result.canceled && result.assets[0]) {
@@ -255,7 +258,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
         
         setAttachmentMenuVisible(false);
         
-        // Direkt olarak fotoğrafı seç, dialog açma
+        // Orijinal çözünürlükte kaydet
         setSelectedMedia({
           uri: asset.uri,
           type: 'image',
@@ -277,9 +280,10 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
+        allowsEditing: true, // iOS/Android yerleşik editör kullan
         allowsMultipleSelection: false,
-        quality: 0.8,
+        quality: 1.0, // Maksimum kalite
+        aspect: undefined, // Serbest aspect ratio
         presentationStyle: ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
       });
 
@@ -289,7 +293,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, onClose }) => {
         
         setAttachmentMenuVisible(false);
         
-        // Direkt olarak fotoğrafı seç, dialog açma
+        // Orijinal çözünürlükte kaydet
         setSelectedMedia({
           uri: asset.uri,
           type: 'image',

@@ -19,6 +19,7 @@ export const LanguageModal: React.FC<LanguageModalProps> = ({ visible, onClose }
 
   const languages: { code: Language; name: string; nativeName: string; flag: string }[] = [
     { code: 'tr', name: 'Turkish', nativeName: 'Türkçe', flag: '🇹🇷' },
+    { code: 'ku', name: 'Kurdish', nativeName: 'Kurdî', flag: '☀️' },
     { code: 'en', name: 'English', nativeName: 'English', flag: '🇺🇸' },
     { code: 'de', name: 'German', nativeName: 'Deutsch', flag: '🇩🇪' },
     { code: 'es', name: 'Spanish', nativeName: 'Español', flag: '🇪🇸' },
@@ -100,7 +101,7 @@ export const LanguageModal: React.FC<LanguageModalProps> = ({ visible, onClose }
                   {t('language.select_language')}
                 </Text>
                 <Text style={[styles.modalSubtitle, { color: theme.colors.text.secondary }]}>
-                  Uygulama dilini seçin
+                  {t('language.select_app_language')}
                 </Text>
               </View>
 

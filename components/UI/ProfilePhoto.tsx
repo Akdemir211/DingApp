@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Image, StyleSheet, TouchableOpacity, View, Alert, Modal, Dimensions, StatusBar } from 'react-native';
 import { Colors } from '@/constants/Theme';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { useAuth } from '@/context/AuthContext';
 import { uploadProfilePhoto } from '@/lib/profileService';
 import { X } from 'lucide-react-native';
@@ -52,8 +53,8 @@ export const ProfilePhoto: React.FC<ProfilePhotoProps> = ({
 
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          aspect: [1, 1],
+          allowsEditing: true, // Kullanıcı galeri açıldığında fotoğrafı kırpabilir
+          aspect: [1, 1], // Profil fotoğrafı için kare format zorunlu
           quality: 0.5,
           allowsMultipleSelection: false,
         });
@@ -62,11 +63,28 @@ export const ProfilePhoto: React.FC<ProfilePhotoProps> = ({
           try {
             console.log('Selected image URI:', result.assets[0].uri);
             
+            // Serbest kırpma özelliği ekle
+            let processedImageUri = result.assets[0].uri;
+            try {
+              const croppedImage = await ImageManipulator.manipulateAsync(
+                result.assets[0].uri,
+                [],
+                { 
+                  compress: 0.8,
+                  format: ImageManipulator.SaveFormat.JPEG,
+                  base64: false
+                }
+              );
+              processedImageUri = croppedImage.uri;
+            } catch (manipulatorError) {
+              console.log('Image manipulator hatası, orijinal resim kullanılıyor:', manipulatorError);
+            }
+            
             // Fetch the image as a blob with timeout
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
             
-            const response = await fetch(result.assets[0].uri, {
+            const response = await fetch(processedImageUri, {
               signal: controller.signal
             });
             

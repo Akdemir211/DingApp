@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type Language = 'tr' | 'en' | 'de' | 'es' | 'ru' | 'zh';
+export type Language = 'tr' | 'en' | 'de' | 'es' | 'ru' | 'zh' | 'ku';
 
 interface LanguageContextType {
   language: Language;
@@ -77,12 +77,14 @@ const translations = {
 
     // Language Modal
     'language.select_language': 'Dil Seçin',
+    'language.select_app_language': 'Uygulama dilini seçin',
     'language.turkish': 'Türkçe',
     'language.english': 'İnglizce',
     'language.german': 'Almanca',
     'language.spanish': 'İspanyolca',
     'language.russian': 'Rusça',
     'language.chinese': 'Çince',
+    'language.kurdish': 'Kürtçe',
     'language.cancel': 'İptal',
 
     // Common
@@ -157,12 +159,14 @@ const translations = {
 
     // Language Modal
     'language.select_language': 'Select Language',
+    'language.select_app_language': 'Choose your application language',
     'language.turkish': 'Turkish',
     'language.english': 'English',
     'language.german': 'German',
     'language.spanish': 'Spanish',
     'language.russian': 'Russian',
     'language.chinese': 'Chinese',
+    'language.kurdish': 'Kurdish',
     'language.cancel': 'Cancel',
 
     // Common
@@ -237,12 +241,14 @@ const translations = {
 
     // Language Modal
     'language.select_language': 'Sprache auswählen',
+    'language.select_app_language': 'Wählen Sie Ihre Anwendungssprache',
     'language.turkish': 'Türkisch',
     'language.english': 'Englisch',
     'language.german': 'Deutsch',
     'language.spanish': 'Spanisch',
     'language.russian': 'Russisch',
     'language.chinese': 'Chinesisch',
+    'language.kurdish': 'Kurdisch',
     'language.cancel': 'Abbrechen',
 
     // Common
@@ -317,12 +323,14 @@ const translations = {
 
     // Language Modal
     'language.select_language': 'Seleccionar Idioma',
+    'language.select_app_language': 'Elige el idioma de tu aplicación',
     'language.turkish': 'Turco',
     'language.english': 'Inglés',
     'language.german': 'Alemán',
     'language.spanish': 'Español',
     'language.russian': 'Ruso',
     'language.chinese': 'Chino',
+    'language.kurdish': 'Kurdo',
     'language.cancel': 'Cancelar',
 
     // Common
@@ -397,12 +405,14 @@ const translations = {
 
     // Language Modal
     'language.select_language': 'Выберите язык',
+    'language.select_app_language': 'Выберите язык вашего приложения',
     'language.turkish': 'Турецкий',
     'language.english': 'Английский',
     'language.german': 'Немецкий',
     'language.spanish': 'Испанский',
     'language.russian': 'Русский',
     'language.chinese': 'Китайский',
+    'language.kurdish': 'Курдский',
     'language.cancel': 'Отмена',
 
     // Common
@@ -477,12 +487,14 @@ const translations = {
 
     // Language Modal
     'language.select_language': '选择语言',
+    'language.select_app_language': '选择您的应用程序语言',
     'language.turkish': '土耳其语',
     'language.english': '英语',
     'language.german': '德语',
     'language.spanish': '西班牙语',
     'language.russian': '俄语',
     'language.chinese': '中文',
+    'language.kurdish': '库尔德语',
     'language.cancel': '取消',
 
     // Common
@@ -491,6 +503,88 @@ const translations = {
     'common.loading': '加载中...',
     'common.error': '错误',
     'common.success': '成功',
+  },
+  ku: {
+    // Home Screen
+    'home.welcome': 'Bi xêr hatî,',
+    'home.guest': 'Mêvan',
+    'home.friends_active': 'heval çalak',
+    'home.quick_access': 'Gihiştina Bilez',
+    'home.privileges': 'Mafên Taybetî',
+    'home.chat_rooms': 'Oteyên Sohbetê',
+    'home.chat_rooms_desc': 'Beşdarî sohbetên giştî bibe an jî oteyên taybet û şîfrekirî ava bike',
+    'home.study_sessions': 'Danişînên Xwendinê',
+    'home.study_sessions_desc': 'Demê xwendinê bişopîne û ligel hevalan pêş de here',
+    'home.watch_room': 'Oteyê Temaşekirinê',
+    'home.watch_room_desc': 'Ligel hevalan re vîdyo bibîne û sohbet bike',
+    'home.ai_coach': 'Mamosteyê Min ê AI',
+    'home.ai_study': 'Bi AI re Bixwîne',
+    'home.ai_coach_desc': 'Alîkarê xwendinê yê bi teknolojiya AI amade ye ku ji te re alîkarî bike',
+    'home.ai_study_desc': 'Xwendina xwe bi mamosteyê AI û alîkarê çareseriya pirsan bêtir bandor bike',
+    'home.upgrade_pro': 'Berbi Pro ve Bilind bike',
+
+    // Profile Screen
+    'profile.user': 'Bikarhêner',
+    'profile.rookie': 'Destpêker',
+    'profile.student': 'Xwendekar',
+    'profile.professor': 'Profesör',
+    'profile.level': 'Ast',
+    'profile.xp_left': 'XP ma',
+    'profile.my_stats': 'Statistîkên Min',
+    'profile.study_hours': 'Demjimêrên Xwendinê',
+    'profile.messages': 'Peyam',
+    'profile.achievements': 'Serkeftinên',
+    'profile.this_week': 'Ev hefte',
+    'profile.new': 'Nû',
+    'profile.account_settings': 'Mîhengên Hesabê',
+    'profile.account_info': 'Agahiyên Hesabê',
+    'profile.notifications': 'Hişyariyan',
+    'profile.upgrade_pro': 'Berbi Pro ve Bilind bike',
+    'profile.app_settings': 'Mîhengên Sepanê',
+    'profile.theme_settings': 'Mîhengên Rûkesh',
+    'profile.language_options': 'Vebijarkên Zimanî',
+    'profile.help_support': 'Alîkarî û Piştgirî',
+    'profile.other': 'Yên Din',
+    'profile.logout': 'Derketin',
+
+    // Account Settings
+    'account.title': 'Mîhengên Hesabê',
+    'account.profile_info': 'Agahiyên Profîlê',
+    'account.personal_info': 'Agahiyên Kesane',
+    'account.full_name': 'Nav û Paşnav',
+    'account.enter_name': 'Navê xwe binivîse',
+    'account.update_profile': 'Profîlê Nûve bike',
+    'account.security': 'Ewlehî',
+    'account.change_password': 'Şîfreyê Biguhire',
+    'account.new_password': 'Şîfreya Nû',
+    'account.enter_new_password': 'Şîfreya xwe ya nû binivîse',
+    'account.confirm_password': 'Şîfreyê Bipejirîne',
+    'account.enter_confirm_password': 'Şîfreya xwe ya nû dîsa binivîse',
+    'account.update_password': 'Şîfreyê Nûve bike',
+    'account.profile_updated': 'Profîl bi serkeftî hat nûvekirin',
+    'account.password_updated': 'Şîfre bi serkeftî hat nûvekirin',
+    'account.passwords_not_match': 'Şîfreyên nû li hev nagerin',
+    'account.password_min_length': 'Şîfre divê herî kêm 6 tîp be',
+    'account.loading_error': 'Di barkirina agahiyên profîlê de çewtî çêbû',
+
+    // Language Modal
+    'language.select_language': 'Ziman Hilbijêre',
+    'language.select_app_language': 'Zimanê sepana xwe hilbijêre',
+    'language.turkish': 'Tirkî',
+    'language.english': 'Îngilîzî',
+    'language.german': 'Almanî',
+    'language.spanish': 'Spanî',
+    'language.russian': 'Rûsî',
+    'language.chinese': 'Çînî',
+    'language.kurdish': 'Kurdî',
+    'language.cancel': 'Betal bike',
+
+    // Common
+    'common.cancel': 'Betal bike',
+    'common.save': 'Tomar bike',
+    'common.loading': 'Bar dibe...',
+    'common.error': 'Çewtî',
+    'common.success': 'Serkeftî',
   }
 };
 
@@ -504,7 +598,7 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
   const loadLanguage = async () => {
     try {
       const savedLanguage = await AsyncStorage.getItem('app_language');
-      if (savedLanguage && ['tr', 'en', 'de', 'es', 'ru', 'zh'].includes(savedLanguage)) {
+      if (savedLanguage && ['tr', 'en', 'de', 'es', 'ru', 'zh', 'ku'].includes(savedLanguage)) {
         setLanguageState(savedLanguage as Language);
       }
     } catch (error) {

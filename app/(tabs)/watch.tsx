@@ -9,6 +9,7 @@ import { GradientBackground, GradientCard } from '@/components/UI/GradientBackgr
 import { Button } from '@/components/UI/Button';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { router } from 'expo-router';
 import { Video, Users, ArrowLeft, Plus, Lock, Trash2, Play, Eye, Clock } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
@@ -35,6 +36,7 @@ const RoomCard = ({ room, onPress, onDelete, delay = 0 }: {
 }) => {
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const isCreator = room.created_by === user?.id;
   const scale = useSharedValue(1);
 
@@ -90,12 +92,12 @@ const RoomCard = ({ room, onPress, onDelete, delay = 0 }: {
             <View style={styles.statItem}>
               <Users size={14} color={theme.colors.text.secondary} />
               <Text style={[styles.statText, { color: theme.colors.text.secondary }]}>
-                {room.members?.length || 0} üye
+                {room.members?.length || 0} {t('chat.members')}
               </Text>
             </View>
             <View style={styles.statItem}>
               <Eye size={14} color={theme.colors.success} />
-              <Text style={[styles.statText, { color: theme.colors.text.secondary }]}>Aktif</Text>
+              <Text style={[styles.statText, { color: theme.colors.text.secondary }]}>{t('study.active_members')}</Text>
             </View>
           </View>
 
@@ -124,6 +126,7 @@ const RoomSection = ({ title, rooms, isPrivate, onJoinRoom, onDeleteRoom }: {
   onDeleteRoom: (roomId: string) => void
 }) => {
   const { theme } = useTheme();
+  const { t } = useLanguage();
   
   return (
     <View style={styles.sectionContainer}>
@@ -153,7 +156,7 @@ const RoomSection = ({ title, rooms, isPrivate, onJoinRoom, onDeleteRoom }: {
           entering={FadeIn.delay(400).duration(600)}
           style={styles.emptyContainer}
         >
-          <Text style={[styles.emptyText, { color: theme.colors.text.secondary }]}>Bu kategoride henüz oda yok</Text>
+          <Text style={[styles.emptyText, { color: theme.colors.text.secondary }]}>{t('chat.no_rooms')}</Text>
         </Animated.View>
       )}
     </View>
@@ -163,6 +166,7 @@ const RoomSection = ({ title, rooms, isPrivate, onJoinRoom, onDeleteRoom }: {
 export default function WatchScreen() {
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const [rooms, setRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -311,17 +315,17 @@ export default function WatchScreen() {
               contentContainerStyle={styles.scrollContent}
             >
               <RoomSection 
-                title="Şifreli Odalar"
-                rooms={privateRooms}
-                isPrivate={true}
+                title={t('chat.public_rooms')}
+                rooms={publicRooms}
+                isPrivate={false}
                 onJoinRoom={handleJoinRoom}
                 onDeleteRoom={handleDeleteRoom}
               />
               
               <RoomSection 
-                title="Genel Odalar"
-                rooms={publicRooms}
-                isPrivate={false}
+                title={t('chat.private_rooms')}
+                rooms={privateRooms}
+                isPrivate={true}
                 onJoinRoom={handleJoinRoom}
                 onDeleteRoom={handleDeleteRoom}
               />

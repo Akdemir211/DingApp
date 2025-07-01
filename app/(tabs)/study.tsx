@@ -10,6 +10,7 @@ import { Button } from '@/components/UI/Button';
 import { TimerDisplay } from '@/components/UI/AnimatedCounter';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { Clock, BookOpen, Users, Plus, Play, Pause, RotateCcw, Lock, Trash2, Target, Zap, Timer } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import { useStudyTimer } from '@/hooks/useStudyTimer';
@@ -38,6 +39,7 @@ const RoomCard = ({ room, onPress, onDelete, delay = 0 }: {
 }) => {
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const isCreator = room.created_by === user?.id;
   const scale = useSharedValue(1);
 
@@ -83,7 +85,7 @@ const RoomCard = ({ room, onPress, onDelete, delay = 0 }: {
               )}
             </View>
             <Text style={[styles.roomDescription, { color: theme.colors.text.secondary }]} numberOfLines={2}>
-              {room.description || 'Çalışma odası'}
+              {room.description || t('study.room_description')}
             </Text>
           </View>
         </View>
@@ -93,13 +95,13 @@ const RoomCard = ({ room, onPress, onDelete, delay = 0 }: {
             <View style={styles.statItem}>
               <Users size={14} color={theme.colors.text.secondary} />
               <Text style={[styles.statText, { color: theme.colors.text.secondary }]}>
-                {room.members?.length || 0} üye
+                {room.members?.length || 0} {t('chat.members')}
               </Text>
             </View>
             <View style={styles.statItem}>
               <Clock size={14} color={theme.colors.success} />
               <Text style={[styles.statText, { color: theme.colors.text.secondary }]}>
-                {room.current_members?.filter((m: any) => m.current_session_id).length || 0} aktif
+                {room.current_members?.filter((m: any) => m.current_session_id).length || 0} {t('study.active_members')}
               </Text>
             </View>
           </View>
@@ -168,6 +170,7 @@ const RoomSection = ({ title, rooms, isPrivate, onJoinRoom, onDeleteRoom }: {
 export default function StudyScreen() {
   const { user, session, loading } = useAuth();
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const { 
     isRunning, 
     isPaused,
@@ -431,7 +434,7 @@ export default function StudyScreen() {
             ) : (
               <>
                 <RoomSection 
-                  title="Şifreli Odalar"
+                  title={t('study.private_rooms')}
                   rooms={privateRooms}
                   isPrivate={true}
                   onJoinRoom={handleJoinRoom}
@@ -439,7 +442,7 @@ export default function StudyScreen() {
                 />
                 
                 <RoomSection 
-                  title="Genel Odalar"
+                  title={t('study.public_rooms')}
                   rooms={publicRooms}
                   isPrivate={false}
                   onJoinRoom={handleJoinRoom}
@@ -453,12 +456,12 @@ export default function StudyScreen() {
                   >
                     <GradientCard colors={theme.colors.gradients.warmDark} style={styles.emptyCard}>
                       <Target size={48} color={theme.colors.text.secondary} style={styles.emptyIcon} />
-                      <Text style={[styles.emptyTitle, { color: theme.colors.text.primary }]}>Henüz hiç çalışma odası yok</Text>
+                      <Text style={[styles.emptyTitle, { color: theme.colors.text.primary }]}>{t('study.no_rooms')}</Text>
                       <Text style={[styles.emptyDescription, { color: theme.colors.text.secondary }]}>
                         Arkadaşlarınla birlikte çalışmak için bir oda oluştur ve motivasyonunu artır
                       </Text>
                       <Button
-                        title="Oda Oluştur"
+                        title={t('study.create_room')}
                         onPress={handleCreateRoom}
                         variant="primary"
                         size="medium"

@@ -46,8 +46,8 @@ supabase.channel('chat_messages')
   })
   .subscribe();
 
-// Add error handling for failed requests
-supabase.handleError = (error) => {
+// Helper function for error handling
+export const handleSupabaseError = (error: any) => {
   console.error('Supabase error:', error);
   // You can add additional error handling logic here
 };

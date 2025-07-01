@@ -153,12 +153,12 @@ export const useStudyTimer = () => {
   }, []);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: number;
 
     if (isRunning) {
       interval = setInterval(() => {
         setElapsedTime((time) => time + 1);
-      }, 1000);
+      }, 1000) as unknown as number;
     }
 
     return () => {

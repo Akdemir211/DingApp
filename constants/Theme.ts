@@ -60,7 +60,7 @@ export const DarkTheme = {
     },
     gradients: {
       primary: [BaseColors.primary[500], BaseColors.primary[400]] as const,
-      background: ['#0F172A', '#1E293B'] as const,
+      background: '#0F172A' as const,
       card: ['#1E293B', '#334155'] as const,
       accent: [BaseColors.primary[500], '#7C3AED'] as const,
       dark: ['#0F172A', '#1E293B'] as const,
@@ -104,7 +104,7 @@ export const LightTheme = {
     },
     gradients: {
       primary: [BaseColors.primary[500], BaseColors.primary[400]] as const,
-      background: ['#FFFFFF', '#F8FBFF'] as const,
+      background: '#FFFFFF' as const,
       card: ['#FFFFFF', '#F0F8FF'] as const,
       accent: [BaseColors.primary[300], BaseColors.primary[200]] as const,
       dark: ['#FFFFFF', '#F8FBFF'] as const,
@@ -229,5 +229,48 @@ export const Animations = {
   }
 };
 
-export type Theme = typeof DarkTheme;
+export type Theme = {
+  colors: {
+    primary: typeof BaseColors.primary;
+    background: {
+      primary: string;
+      secondary: string;
+      tertiary: string;
+      card: string;
+      elevated: string;
+      dark: string;
+      darker: string;
+    };
+    text: {
+      primary: string;
+      secondary: string;
+      tertiary: string;
+      inverse: string;
+      inactive: string;
+    };
+    border: {
+      primary: string;
+      secondary: string;
+      focus: string;
+    };
+    gradients: {
+      primary: readonly [string, string];
+      background: string;
+      card: readonly [string, string];
+      accent: readonly [string, string];
+      dark: readonly [string, string];
+      purple: readonly [string, string];
+      blue: readonly [string, string];
+      green: readonly [string, string];
+      warmDark: readonly [string, string];
+      coolDark: readonly [string, string];
+    };
+    success: string;
+    warning: string;
+    error: string;
+    medal: typeof BaseColors.medal;
+    darkGray: typeof BaseColors.gray;
+  };
+};
+
 export type ThemeColors = Theme['colors'];

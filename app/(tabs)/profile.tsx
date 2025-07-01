@@ -212,48 +212,7 @@ const getRankInfo = (messageCount: number, t: (key: string) => string) => {
 };
 
 // Pro Toast Bileşeni
-const ProToast = ({ visible, onHide, theme }: { visible: boolean, onHide: () => void, theme: any }) => {
-  const translateY = useSharedValue(-100);
-  const opacity = useSharedValue(0);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-    opacity: opacity.value,
-  }));
-
-  useEffect(() => {
-    if (visible) {
-      translateY.value = withSpring(0);
-      opacity.value = withSpring(1);
-      
-      // 3 saniye sonra otomatik gizle
-      const timer = setTimeout(() => {
-        translateY.value = withSpring(-100);
-        opacity.value = withSpring(0, {}, () => {
-          runOnJS(onHide)();
-        });
-      }, 3000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [visible]);
-
-  if (!visible) return null;
-
-  return (
-    <Animated.View style={[styles.toastContainer, animatedStyle]}>
-      <LinearGradient
-        colors={[theme.colors.success, theme.colors.success + 'CC']}
-        style={styles.toastGradient}
-      >
-        <CheckCircle size={20} color={theme.colors.text.primary} />
-        <Text style={[styles.toastText, { color: theme.colors.text.primary }]}>
-          Zaten Pro Kullanıcısınız! 👑
-        </Text>
-      </LinearGradient>
-    </Animated.View>
-  );
-};
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
@@ -265,7 +224,6 @@ export default function ProfileScreen() {
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
-  const [showProToast, setShowProToast] = useState(false);
 
   useEffect(() => {
     const initializeProfile = async () => {
@@ -397,10 +355,10 @@ export default function ProfileScreen() {
     return `${minutes} dakika`;
   };
 
-  // Pro yükselt fonksiyonu
+  // Pro yükselt/yönet fonksiyonu
   const handleProUpgrade = () => {
     if (userData?.is_pro) {
-      setShowProToast(true);
+      router.push('/subscription-management');
     } else {
       router.push('/pro-upgrade');
     }
@@ -424,7 +382,7 @@ export default function ProfileScreen() {
     },
     {
       icon: <Crown size={20} color={theme.colors.medal.gold} />,
-      title: t('profile.upgrade_pro'),
+      title: userData?.is_pro ? 'Üyelik Yönetimi' : t('profile.upgrade_pro'),
       onPress: handleProUpgrade,
       isPremium: !userData?.is_pro
     }
@@ -467,12 +425,7 @@ export default function ProfileScreen() {
       <GradientBackground colors={[theme.colors.background.dark, theme.colors.background.darker, theme.colors.darkGray[800]]}>
         <FloatingBubbleBackground />
         
-        {/* Pro Toast - moved to top of screen within SafeAreaView */}
-        <ProToast 
-          visible={showProToast}
-          onHide={() => setShowProToast(false)}
-          theme={theme}
-        />
+
         
         <SafeContainer style={styles.safeArea}>
           <ScrollView 

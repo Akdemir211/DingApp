@@ -100,7 +100,7 @@ export default function RootLayout() {
           <TabBarProvider>
             <AuthProvider>
               <AppContent />
-          </AuthProvider>
+            </AuthProvider>
           </TabBarProvider>
         </ThemeProvider>
       </LanguageProvider>

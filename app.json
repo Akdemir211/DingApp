@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "DingApp",
-    "slug": "dingapp",
+    "name": "Roomix-ai",
+    "slug": "roomix-ai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "dingapp",
+    "scheme": "roomix-ai",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -45,8 +45,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "e0c3af1b-8df8-44c5-a1b5-bc7bd6424ada"
+        "projectId": "075c44ab-c193-4b86-b99f-737faddfad73"
       }
-    }
+    },
+    "owner": "akdemir211"
   }
 }

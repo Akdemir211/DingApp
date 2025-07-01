@@ -5,6 +5,7 @@ import { SafeContainer } from '@/components/UI/SafeContainer';
 import { router } from 'expo-router';
 import { Colors, Spacing, FontSizes, BorderRadius } from '@/constants/Theme';
 import { useAuth } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { ArrowLeft, Send, X, Edit, Trash, Paperclip, Camera, File } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import { getGeminiStreamResponse, getGeminiResponse, analyzeImageWithVision } from '@/lib/gemini';
@@ -25,13 +26,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 
-// İlk selamlama mesajı
-const GREETING_MESSAGE: Omit<ChatMessage, 'id'> = {
-  role: 'assistant',
-  content: 'Merhaba! Ben senin yapay zeka destekli eğitim koçunum. Ders çalışma, sınavlara hazırlanma veya herhangi bir konuda sana yardımcı olabilirim. Seni daha iyi tanıyabilir miyim?',
-  timestamp: new Date()
-};
-
 // Yazı animasyonu süreleri
 const LETTER_DELAY = 10; // milisaniye
 const MIN_DELAY = 5; // minimum gecikme
@@ -51,6 +45,15 @@ function generateUUID(): string {
 
 export default function AIChatScreen() {
   const { user } = useAuth();
+  const { t } = useLanguage();
+  
+  // İlk selamlama mesajı - çevirili versiyon
+  const GREETING_MESSAGE: Omit<ChatMessage, 'id'> = {
+    role: 'assistant',
+    content: t('ai_chat.greeting'),
+    timestamp: new Date()
+  };
+
   const [isReady, setIsReady] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [persistedMessages, setPersistedMessages] = useState<ChatMessage[]>([]);
@@ -840,9 +843,9 @@ export default function AIChatScreen() {
           </View>
           
           <View style={styles.headerInfo}>
-            <Text style={styles.title}>AI Eğitim Koçu</Text>
+            <Text style={styles.title}>{t('ai_chat.title')}</Text>
             <Text style={styles.subtitle}>
-              {userInfo?.name ? `Merhaba ${userInfo.name}! Size nasıl yardımcı olabilirim?` : 'Her zaman yanınızda'}
+              {userInfo?.name ? `${t('home.welcome')} ${userInfo.name}!` : t('ai_chat.greeting')}
             </Text>
           </View>
         </LinearGradient>
@@ -860,7 +863,7 @@ export default function AIChatScreen() {
         {isLoadingHistory ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={Colors.primary[400]} />
-            <Text style={styles.loadingText}>Sohbet geçmişi yükleniyor...</Text>
+            <Text style={styles.loadingText}>{t('common.loading')}</Text>
           </View>
         ) : (
           <ScrollView
@@ -943,7 +946,7 @@ export default function AIChatScreen() {
             ) : isLoading && (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color={Colors.primary[400]} />
-                <Text style={styles.loadingText}>Yanıt hazırlanıyor...</Text>
+                <Text style={styles.loadingText}>{t('ai_chat.thinking')}</Text>
               </View>
             )}
           </ScrollView>
@@ -983,7 +986,7 @@ export default function AIChatScreen() {
               <View style={[styles.attachmentIcon, { backgroundColor: Colors.primary[500] + '20' }]}>
                 <Camera size={20} color={Colors.primary[400]} />
               </View>
-              <Text style={styles.attachmentText}>Galeri</Text>
+              <Text style={styles.attachmentText}>{t('ai_chat.attach_image')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
@@ -993,7 +996,7 @@ export default function AIChatScreen() {
               <View style={[styles.attachmentIcon, { backgroundColor: Colors.success + '20' }]}>
                 <Camera size={20} color={Colors.success} />
               </View>
-              <Text style={styles.attachmentText}>Kamera</Text>
+              <Text style={styles.attachmentText}>{t('ai_chat.take_photo')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
@@ -1003,7 +1006,7 @@ export default function AIChatScreen() {
               <View style={[styles.attachmentIcon, { backgroundColor: Colors.warning + '20' }]}>
                 <File size={20} color={Colors.warning} />
               </View>
-              <Text style={styles.attachmentText}>Dosya</Text>
+              <Text style={styles.attachmentText}>{t('ai_chat.attach_file')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -1026,7 +1029,7 @@ export default function AIChatScreen() {
                   "Fotoğraftaki soruları çözmem için 'çöz' yazın veya ek soru sorun..." : 
                   "Dosya ile ilgili soru sorun..."
                 ) : 
-                "Mesajınızı yazın..."
+                t('ai_chat.type_message')
               }
               placeholderTextColor={Colors.text.secondary}
               multiline
@@ -1079,8 +1082,9 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-          padding: 16, // Header'ı dikey olarak kısalt
-      paddingTop: 8, // Header'ı biraz daha yukarı taşı
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingTop: 20,
     backgroundColor: Colors.background.darker,
     borderBottomWidth: 1,
     borderBottomColor: Colors.darkGray[800],
@@ -1098,7 +1102,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: Spacing.sm, // Container padding'ini de azalt
+    padding: Spacing.sm,
     borderRadius: BorderRadius.lg,
     marginHorizontal: Spacing.sm,
   },

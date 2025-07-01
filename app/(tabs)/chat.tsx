@@ -9,6 +9,7 @@ import { GradientBackground } from '@/components/UI/GradientBackground';
 import { Button } from '@/components/UI/Button';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { MessageSquare, Lock, Users, Search, Plus, Trash2, Crown, Hash, Shield } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import { useChat } from '@/hooks/useChat';
@@ -32,6 +33,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 export default function ChatScreen() {
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const { rooms, loading, error, deleteRoom } = useChat();
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -92,7 +94,7 @@ export default function ChatScreen() {
 
   const handleJoinRoom = (roomId: string, isPrivate: boolean, name: string) => {
     // Eğitim Koçum odası kontrolü
-    if (name === "Eğitim Koçum") {
+    if (name === t('home.ai_coach')) {
       if (!userData?.is_pro) {
         router.push('/pro-upgrade');
         return;
@@ -189,12 +191,12 @@ export default function ChatScreen() {
             <View style={styles.roomStats}>
               <View style={styles.statItem}>
                 <Users size={14} color={theme.colors.text.secondary} />
-                <Text style={[styles.statsText, { color: theme.colors.text.secondary }]}>Aktif Oda</Text>
+                <Text style={[styles.statsText, { color: theme.colors.text.secondary }]}>{t('chat.active_room')}</Text>
               </View>
               {room.is_private && (
                 <View style={styles.statItem}>
                   <Shield size={14} color={theme.colors.warning} />
-                  <Text style={[styles.statsText, { color: theme.colors.text.secondary }]}>Şifreli</Text>
+                  <Text style={[styles.statsText, { color: theme.colors.text.secondary }]}>{t('chat.encrypted')}</Text>
                 </View>
               )}
             </View>
@@ -220,7 +222,7 @@ export default function ChatScreen() {
     <View style={styles.sectionContainer}>
       <Animated.View 
         style={styles.sectionTitleContainer}
-        entering={FadeIn.delay(200).duration(800)}
+        entering={FadeIn.delay(300).duration(800)}
       >
         <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>{title}</Text>
         <View style={[styles.sectionBadge, { backgroundColor: theme.colors.background.elevated }]}>
@@ -233,16 +235,16 @@ export default function ChatScreen() {
         <RoomCard 
           key={room.id}
           room={room}
-          delay={300 + (index * 100)}
+          delay={400 + (index * 100)}
         />
       ))}
       
       {rooms.length === 0 && (
         <Animated.View 
-          entering={FadeIn.delay(400).duration(600)}
+          entering={FadeIn.delay(500).duration(600)}
           style={styles.emptyContainer}
         >
-          <Text style={[styles.emptyText, { color: theme.colors.text.secondary }]}>Bu kategoride henüz oda yok</Text>
+          <Text style={[styles.emptyText, { color: theme.colors.text.secondary }]}>{t('chat.no_rooms')}</Text>
         </Animated.View>
       )}
     </View>
@@ -288,8 +290,12 @@ export default function ChatScreen() {
           >
             <Search size={20} color={theme.colors.text.secondary} style={styles.searchIcon} />
             <TextInput
-              style={[styles.searchInput, { color: theme.colors.text.primary }]}
-              placeholder="Sohbet odalarında ara..."
+              style={[styles.searchInput, { 
+                backgroundColor: theme.colors.background.elevated,
+                color: theme.colors.text.primary,
+                borderColor: theme.colors.border.primary
+              }]}
+              placeholder={t('chat.search_rooms')}
               placeholderTextColor={theme.colors.text.secondary}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -317,14 +323,14 @@ export default function ChatScreen() {
               ListHeaderComponent={
                 <>
                   <RoomSection 
-                    title="Şifreli Odalar" 
-                    rooms={filteredPrivateRooms}
-                    isPrivate={true}
-                  />
-                  <RoomSection 
-                    title="Genel Odalar" 
+                    title={t('chat.public_rooms')}
                     rooms={filteredPublicRooms}
                     isPrivate={false}
+                  />
+                  <RoomSection 
+                    title={t('chat.private_rooms')}
+                    rooms={filteredPrivateRooms}
+                    isPrivate={true}
                   />
                 </>
               }

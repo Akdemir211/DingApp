@@ -6,6 +6,7 @@ import { Colors, Spacing, FontSizes, BorderRadius, Shadows } from '@/constants/T
 import { ModernCard } from '@/components/UI/ModernCard';
 import { GradientBackground, GradientCard } from '@/components/UI/GradientBackground';
 import { useTheme } from '@/context/ThemeContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { router } from 'expo-router';
 import { ArrowLeft, Mail, MessageSquare, Globe, Phone, HelpCircle } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
@@ -48,6 +49,7 @@ const ContactItem = ({
 
 export default function HelpSupportScreen() {
   const { theme } = useTheme();
+  const { t } = useLanguage();
 
   const handleEmail = () => {
     Linking.openURL('mailto:akdemiribrahim007@gmail.com');
@@ -78,7 +80,7 @@ export default function HelpSupportScreen() {
             <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: theme.colors.background.elevated }]}>
               <ArrowLeft size={24} color={theme.colors.text.primary} />
             </TouchableOpacity>
-            <Text style={[styles.title, { color: theme.colors.text.primary }]}>Yardım & Destek</Text>
+            <Text style={[styles.title, { color: theme.colors.text.primary }]}>{t('help.title')}</Text>
             <View style={styles.headerSpacer} />
           </Animated.View>
 
@@ -86,10 +88,9 @@ export default function HelpSupportScreen() {
             <Animated.View entering={FadeIn.delay(200).duration(800)}>
               <GradientCard colors={theme.colors.gradients.accent} style={styles.welcomeCard}>
                 <HelpCircle size={48} color={theme.colors.text.primary} style={styles.helpIcon} />
-                <Text style={[styles.welcomeTitle, { color: theme.colors.text.primary }]}>Size Nasıl Yardımcı Olabiliriz?</Text>
+                <Text style={[styles.welcomeTitle, { color: theme.colors.text.primary }]}>{t('help.welcome_title')}</Text>
                 <Text style={[styles.description, { color: theme.colors.text.secondary }]}>
-                  Herhangi bir sorunuz veya sorununuz mu var? Size yardımcı olmaktan mutluluk duyarız.
-                  Aşağıdaki kanallardan bizimle iletişime geçebilirsiniz.
+                  {t('help.welcome_desc')}
                 </Text>
               </GradientCard>
             </Animated.View>
@@ -97,7 +98,7 @@ export default function HelpSupportScreen() {
             <View style={styles.contactList}>
               <ContactItem
                 icon={<Mail size={24} color={theme.colors.primary[400]} />}
-                title="E-posta"
+                title={t('help.email')}
                 value="akdemiribrahim007@gmail.com"
                 onPress={handleEmail}
                 delay={400}
@@ -106,8 +107,8 @@ export default function HelpSupportScreen() {
 
               <ContactItem
                 icon={<MessageSquare size={24} color={theme.colors.success} />}
-                title="Canlı Destek"
-                value="7/24 Chat Desteği"
+                title={t('help.live_support')}
+                value={t('help.live_support_desc')}
                 onPress={handleChat}
                 delay={500}
                 theme={theme}
@@ -115,7 +116,7 @@ export default function HelpSupportScreen() {
 
               <ContactItem
                 icon={<Globe size={24} color={theme.colors.warning} />}
-                title="Website"
+                title={t('help.website')}
                 value="https://roomiks.netlify.app/"
                 onPress={handleWebsite}
                 delay={600}
@@ -124,7 +125,7 @@ export default function HelpSupportScreen() {
 
               <ContactItem
                 icon={<Phone size={24} color={theme.colors.medal.gold} />}
-                title="Telefon"
+                title={t('help.phone')}
                 value="+90 532 385 9586"
                 onPress={handlePhone}
                 delay={700}
@@ -134,10 +135,54 @@ export default function HelpSupportScreen() {
 
             <Animated.View entering={SlideInDown.delay(800).duration(600)}>
               <GradientCard colors={theme.colors.gradients.warmDark} style={styles.faqCard}>
-                <Text style={[styles.faqTitle, { color: theme.colors.text.primary }]}>Sıkça Sorulan Sorular</Text>
-                <Text style={[styles.faqDescription, { color: theme.colors.text.secondary }]}>
-                  Sıkça sorulan sorular ve cevapları için websitemizi ziyaret edebilirsiniz.
-                </Text>
+                <Text style={[styles.faqTitle, { color: theme.colors.text.primary }]}>{t('help.faq_title')}</Text>
+                
+                <View style={styles.faqList}>
+                  <View style={styles.faqItem}>
+                    <Text style={[styles.question, { color: theme.colors.text.primary }]}>
+                      {t('help.faq_1_q')}
+                    </Text>
+                    <Text style={[styles.answer, { color: theme.colors.text.secondary }]}>
+                      {t('help.faq_1_a')}
+                    </Text>
+                  </View>
+
+                  <View style={styles.faqItem}>
+                    <Text style={[styles.question, { color: theme.colors.text.primary }]}>
+                      {t('help.faq_2_q')}
+                    </Text>
+                    <Text style={[styles.answer, { color: theme.colors.text.secondary }]}>
+                      {t('help.faq_2_a')}
+                    </Text>
+                  </View>
+
+                  <View style={styles.faqItem}>
+                    <Text style={[styles.question, { color: theme.colors.text.primary }]}>
+                      {t('help.faq_3_q')}
+                    </Text>
+                    <Text style={[styles.answer, { color: theme.colors.text.secondary }]}>
+                      {t('help.faq_3_a')}
+                    </Text>
+                  </View>
+
+                  <View style={styles.faqItem}>
+                    <Text style={[styles.question, { color: theme.colors.text.primary }]}>
+                      {t('help.faq_4_q')}
+                    </Text>
+                    <Text style={[styles.answer, { color: theme.colors.text.secondary }]}>
+                      {t('help.faq_4_a')}
+                    </Text>
+                  </View>
+
+                  <View style={styles.faqItem}>
+                    <Text style={[styles.question, { color: theme.colors.text.primary }]}>
+                      {t('help.faq_5_q')}
+                    </Text>
+                    <Text style={[styles.answer, { color: theme.colors.text.secondary }]}>
+                      {t('help.faq_5_a')}
+                    </Text>
+                  </View>
+                </View>
               </GradientCard>
             </Animated.View>
           </ScrollView>
@@ -158,8 +203,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.l,
-    paddingBottom: Spacing.md,
+    paddingTop: Spacing.xxl,
+    paddingBottom: Spacing.lg,
   },
   backButton: {
     width: 40,
@@ -243,13 +288,23 @@ const styles = StyleSheet.create({
   faqTitle: {
     fontFamily: 'Inter-SemiBold',
     fontSize: FontSizes.lg,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.lg,
     textAlign: 'center',
   },
-  faqDescription: {
-    fontFamily: 'Inter-Regular',
+  faqList: {
+    gap: Spacing.lg,
+  },
+  faqItem: {
+    gap: Spacing.sm,
+  },
+  question: {
+    fontFamily: 'Inter-SemiBold',
     fontSize: FontSizes.md,
-    lineHeight: 24,
-    textAlign: 'center',
+    lineHeight: 20,
+  },
+  answer: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSizes.sm,
+    lineHeight: 20,
   },
 });

@@ -11,7 +11,7 @@ import { ModernCard } from '@/components/UI/ModernCard';
 import { GradientBackground, GradientCard } from '@/components/UI/GradientBackground';
 import { Button } from '@/components/UI/Button';
 import { router } from 'expo-router';
-import { ArrowRight, MessageSquare, Clock, Users, Bot, Video, Sparkles } from 'lucide-react-native';
+import { ArrowRight, MessageSquare, Clock, Users, Bot, Video, Sparkles, Trophy } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import { supabase } from '@/lib/supabase';
 import { eventEmitter, Events } from '@/lib/eventEmitter';
@@ -310,6 +310,45 @@ export default function HomeScreen() {
                   </TouchableOpacity>
                 </Animated.View>
               </View>
+
+              {/* Eğlence Bölümü */}
+              <View style={styles.entertainmentSection}>
+                <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>Eğlence</Text>
+                
+                <Animated.View entering={FadeIn.delay(700).duration(600)}>
+                  <TouchableOpacity onPress={() => router.push('/quiz-game')}>
+                    <GradientCard 
+                      colors={['#FF6B6B', '#4ECDC4', '#45B7D1']} 
+                      style={styles.quizCard}
+                    >
+                      <Image 
+                        source={{ uri: 'https://images.pexels.com/photos/301926/pexels-photo-301926.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1' }}
+                        style={styles.quizCardImage}
+                        resizeMode="cover"
+                      />
+                      <LinearGradient
+                        colors={['rgba(0,0,0,0.3)', 'rgba(255,107,107,0.8)']}
+                        style={styles.quizCardOverlay}
+                      >
+                        <Trophy size={32} color={theme.colors.text.primary} style={styles.quizCardIcon} />
+                        <Text style={[styles.quizCardTitle, { color: theme.colors.text.primary }]}>
+                          Kim Milyoner Olmak İster?
+                        </Text>
+                        <Text style={[styles.quizCardDescription, { color: theme.colors.text.secondary }]}>
+                          Bilgi yarışmasında yeteneklerini test et ve milyoner ol!
+                        </Text>
+                        <Button 
+                          title="Oyuna Başla"
+                          onPress={() => router.push('/quiz-game')}
+                          variant="primary"
+                          size="small"
+                          style={styles.quizCardButton}
+                        />
+                      </LinearGradient>
+                    </GradientCard>
+                  </TouchableOpacity>
+                </Animated.View>
+              </View>
             </Animated.View>
           </ScrollView>
         </SafeContainer>
@@ -327,7 +366,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: Spacing.lg,
-    paddingBottom: Spacing.xxl,
+    paddingBottom: Spacing.xxl * 2,
   },
   welcomeContainer: {
     marginBottom: Spacing.xl,
@@ -504,5 +543,44 @@ const styles = StyleSheet.create({
   privilegesSection: {
     marginTop: Spacing.md,
     marginBottom: Spacing.xxl,
+  },
+  entertainmentSection: {
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.xxl,
+  },
+  quizCard: {
+    height: 220,
+    marginVertical: Spacing.md,
+    padding: 0,
+    overflow: 'hidden',
+    ...Shadows.large,
+  },
+  quizCardImage: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+  },
+  quizCardOverlay: {
+    flex: 1,
+    padding: Spacing.lg,
+    justifyContent: 'flex-end',
+  },
+  quizCardIcon: {
+    marginBottom: Spacing.sm,
+  },
+  quizCardTitle: {
+    fontFamily: 'Inter-Bold',
+    fontSize: FontSizes.lg,
+    marginBottom: Spacing.sm,
+    lineHeight: 22,
+  },
+  quizCardDescription: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSizes.sm,
+    lineHeight: 18,
+    marginBottom: Spacing.md,
+  },
+  quizCardButton: {
+    alignSelf: 'flex-start',
   },
 });

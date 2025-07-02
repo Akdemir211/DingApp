@@ -102,7 +102,7 @@ const translations = {
     'common.ok': 'Tamam',
 
     // AI Chat
-    'ai_chat.title': 'Yapay Zeka Koç',
+    'ai_chat.title': 'EĞİTİM KOÇUM',
     'ai_chat.greeting': 'Merhaba! Ben senin yapay zeka destekli eğitim koçunum. Ders çalışma, sınavlara hazırlanma veya herhangi bir konuda sana yardımcı olabilirim. Seni daha iyi tanıyabilir miyim?',
     'ai_chat.type_message': 'Mesajınızı yazın...',
     'ai_chat.send': 'Gönder',

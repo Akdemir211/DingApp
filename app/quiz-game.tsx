@@ -29,16 +29,16 @@ interface Question {
   prize: string;
 }
 
-// Soru havuzu - Her oyunda rastgele seçilecek
+// Soru havuzu - Her oyunda rastgele seçilecek (Prize değerleri PRIZE_LADDER'dan atanacak)
 const QUESTION_POOL: Question[] = [
-  // KOLAY SORULAR (Genel Kültür)
+  // KOLAY SORULAR (Genel Kültür & Temel Bilgiler)
   {
     id: 1,
     question: "Türkiye'nin başkenti neresidir?",
     options: ["İstanbul", "Ankara", "İzmir", "Bursa"],
     correctAnswer: 1,
     difficulty: 'easy',
-    prize: "1.000 TL"
+    prize: ""
   },
   {
     id: 2,
@@ -46,7 +46,7 @@ const QUESTION_POOL: Question[] = [
     options: ["Venüs", "Mars", "Merkür", "Dünya"],
     correctAnswer: 2,
     difficulty: 'easy',
-    prize: "2.000 TL"
+    prize: ""
   },
   {
     id: 3,
@@ -54,7 +54,7 @@ const QUESTION_POOL: Question[] = [
     options: ["10", "11", "12", "13"],
     correctAnswer: 2,
     difficulty: 'easy',
-    prize: "1.000 TL"
+    prize: ""
   },
   {
     id: 4,
@@ -62,7 +62,7 @@ const QUESTION_POOL: Question[] = [
     options: ["Avrupa-Afrika", "Avrupa-Asya", "Asya-Afrika", "Avrupa-Amerika"],
     correctAnswer: 1,
     difficulty: 'easy',
-    prize: "2.000 TL"
+    prize: ""
   },
   {
     id: 5,
@@ -70,156 +70,478 @@ const QUESTION_POOL: Question[] = [
     options: ["Atlantik", "Hint", "Pasifik", "Arktik"],
     correctAnswer: 2,
     difficulty: 'easy',
-    prize: "1.000 TL"
+    prize: ""
+  },
+  {
+    id: 6,
+    question: "Kaç dakika bir saatte vardır?",
+    options: ["50", "60", "70", "80"],
+    correctAnswer: 1,
+    difficulty: 'easy',
+    prize: ""
+  },
+  {
+    id: 7,
+    question: "Futbolda bir takımda kaç oyuncu sahada yer alır?",
+    options: ["10", "11", "12", "13"],
+    correctAnswer: 1,
+    difficulty: 'easy',
+    prize: ""
+  },
+  {
+    id: 8,
+    question: "Hangi renk kırmızı ve sarının karışımından oluşur?",
+    options: ["Mor", "Turuncu", "Yeşil", "Pembe"],
+    correctAnswer: 1,
+    difficulty: 'easy',
+    prize: ""
+  },
+  {
+    id: 9,
+    question: "Dünyanın en yüksek dağı hangisidir?",
+    options: ["K2", "Everest", "Annapurna", "Kilimanjaro"],
+    correctAnswer: 1,
+    difficulty: 'easy',
+    prize: ""
+  },
+  {
+    id: 10,
+    question: "2 + 2 x 3 işleminin sonucu kaçtır?",
+    options: ["8", "10", "12", "14"],
+    correctAnswer: 0,
+    difficulty: 'easy',
+    prize: ""
+  },
+  {
+    id: 11,
+    question: "Hangi hayvan süt verir?",
+    options: ["Tavuk", "Balık", "İnek", "Kedi"],
+    correctAnswer: 2,
+    difficulty: 'easy',
+    prize: ""
+  },
+  {
+    id: 12,
+    question: "Bir haftada kaç gün vardır?",
+    options: ["5", "6", "7", "8"],
+    correctAnswer: 2,
+    difficulty: 'easy',
+    prize: ""
   },
 
   // ORTA SORULAR (Bilim & Teknoloji)
   {
-    id: 6,
+    id: 13,
     question: "Python hangi tür bir yazılım dilidir?",
     options: ["Düşük seviye", "Makine dili", "Yüksek seviye", "Assembly"],
     correctAnswer: 2,
     difficulty: 'medium',
-    prize: "5.000 TL"
+    prize: ""
   },
   {
-    id: 7,
+    id: 14,
     question: "Hangi element periyodik tabloda 'Au' sembolü ile gösterilir?",
     options: ["Gümüş", "Altın", "Alüminyum", "Arsenik"],
     correctAnswer: 1,
     difficulty: 'medium',
-    prize: "25.000 TL"
+    prize: ""
   },
   {
-    id: 8,
+    id: 15,
     question: "HTTP protokolünde 'S' harfi neyi ifade eder?",
     options: ["Server", "Secure", "System", "Simple"],
     correctAnswer: 1,
     difficulty: 'medium',
-    prize: "10.000 TL"
+    prize: ""
   },
   {
-    id: 9,
+    id: 16,
     question: "İnsan beyninde yaklaşık kaç nöron vardır?",
     options: ["100 milyon", "1 milyar", "100 milyar", "1 trilyon"],
     correctAnswer: 2,
     difficulty: 'medium',
-    prize: "5.000 TL"
+    prize: ""
   },
   {
-    id: 10,
+    id: 17,
     question: "Işık hızı saniyede kaç kilometre yapar?",
     options: ["150.000 km", "300.000 km", "450.000 km", "600.000 km"],
     correctAnswer: 1,
     difficulty: 'medium',
-    prize: "10.000 TL"
+    prize: ""
+  },
+  {
+    id: 18,
+    question: "Hangi vitamin güneş ışığından sentezlenir?",
+    options: ["Vitamin A", "Vitamin B", "Vitamin C", "Vitamin D"],
+    correctAnswer: 3,
+    difficulty: 'medium',
+    prize: ""
+  },
+  {
+    id: 19,
+    question: "DNA'nın açılımı nedir?",
+    options: ["Deoksiribonükleik asit", "Dualribonükleik asit", "Deoksiribonükleit asit", "Deokleroribonükleik asit"],
+    correctAnswer: 0,
+    difficulty: 'medium',
+    prize: ""
+  },
+  {
+    id: 20,
+    question: "E=mc² formülü kime aittir?",
+    options: ["Newton", "Einstein", "Galileo", "Tesla"],
+    correctAnswer: 1,
+    difficulty: 'medium',
+    prize: ""
   },
 
   // ORTA SORULAR (Tarih & Edebiyat)
   {
-    id: 11,
+    id: 21,
     question: "Osmanlı İmparatorluğu hangi yılda kurulmuştur?",
     options: ["1299", "1453", "1326", "1389"],
     correctAnswer: 0,
     difficulty: 'medium',
-    prize: "25.000 TL"
+    prize: ""
   },
   {
-    id: 12,
+    id: 22,
     question: "'Safahat' eseri kime aittir?",
     options: ["Yahya Kemal", "Mehmet Akif Ersoy", "Necip Fazıl", "Ahmet Hamdi Tanpınar"],
     correctAnswer: 1,
     difficulty: 'medium',
-    prize: "10.000 TL"
+    prize: ""
   },
   {
-    id: 13,
+    id: 23,
     question: "İkinci Dünya Savaşı hangi yıl sona ermiştir?",
     options: ["1944", "1945", "1946", "1947"],
     correctAnswer: 1,
     difficulty: 'medium',
-    prize: "5.000 TL"
+    prize: ""
+  },
+  {
+    id: 24,
+    question: "Atatürk'ün doğum yılı hangisidir?",
+    options: ["1880", "1881", "1882", "1883"],
+    correctAnswer: 1,
+    difficulty: 'medium',
+    prize: ""
+  },
+  {
+    id: 25,
+    question: "'Kürk Mantolu Madonna' romanının yazarı kimdir?",
+    options: ["Orhan Pamuk", "Sabahattin Ali", "Peyami Safa", "Refik Halit Karay"],
+    correctAnswer: 1,
+    difficulty: 'medium',
+    prize: ""
+  },
+  {
+    id: 26,
+    question: "Cumhuriyet Dönemi'nin ilk başbakanı kimdir?",
+    options: ["İsmet İnönü", "Fevzi Çakmak", "Kazım Karabekir", "Ali Fethi Okyar"],
+    correctAnswer: 0,
+    difficulty: 'medium',
+    prize: ""
+  },
+
+  // ORTA SORULAR (Coğrafya & Sanat)
+  {
+    id: 27,
+    question: "Hangi ülke en fazla saat dilimine sahiptir?",
+    options: ["ABD", "Rusya", "Çin", "Kanada"],
+    correctAnswer: 1,
+    difficulty: 'medium',
+    prize: ""
+  },
+  {
+    id: 28,
+    question: "Mona Lisa tablosunu kim yapmıştır?",
+    options: ["Michelangelo", "Leonardo da Vinci", "Picasso", "Van Gogh"],
+    correctAnswer: 1,
+    difficulty: 'medium',
+    prize: ""
+  },
+  {
+    id: 29,
+    question: "Dünyada en çok konuşulan dil hangisidir?",
+    options: ["İngilizce", "Mandarin Çincesi", "İspanyolca", "Hintçe"],
+    correctAnswer: 1,
+    difficulty: 'medium',
+    prize: ""
+  },
+  {
+    id: 30,
+    question: "Beethoven'ın 9. Senfonisi hangi şehirde seslendirilmiştir?",
+    options: ["Viyana", "Berlin", "Paris", "Londra"],
+    correctAnswer: 0,
+    difficulty: 'medium',
+    prize: ""
+  },
+  {
+    id: 31,
+    question: "Hangi ülke Afrika'nın en büyük ülkesidir?",
+    options: ["Libya", "Cezayir", "Sudan", "Demokratik Kongo Cumhuriyeti"],
+    correctAnswer: 1,
+    difficulty: 'medium',
+    prize: ""
+  },
+  {
+    id: 32,
+    question: "π (pi) sayısının yaklaşık değeri nedir?",
+    options: ["3.14", "3.41", "2.71", "1.41"],
+    correctAnswer: 0,
+    difficulty: 'medium',
+    prize: ""
   },
 
   // ZOR SORULAR (İleri Bilim)
   {
-    id: 14,
+    id: 33,
     question: "Quantum fiziğinde 'belirsizlik ilkesi' kime aittir?",
     options: ["Einstein", "Bohr", "Heisenberg", "Schrödinger"],
     correctAnswer: 2,
     difficulty: 'hard',
-    prize: "50.000 TL"
+    prize: ""
   },
   {
-    id: 15,
+    id: 34,
     question: "DNA'nın çift sarmal yapısını kim keşfetmiştir?",
     options: ["Watson & Crick", "Mendel", "Darwin", "Fleming"],
     correctAnswer: 0,
     difficulty: 'hard',
-    prize: "100.000 TL"
+    prize: ""
   },
   {
-    id: 16,
+    id: 35,
     question: "Hangi matematikçi 'Fermat'ın Son Teoremi'ni çözmüştür?",
     options: ["Gauss", "Euler", "Andrew Wiles", "Riemann"],
     correctAnswer: 2,
     difficulty: 'hard',
-    prize: "250.000 TL"
+    prize: ""
   },
   {
-    id: 17,
+    id: 36,
     question: "CRISPR-Cas9 teknolojisi neyle ilgilidir?",
     options: ["Yapay zeka", "Gen düzenleme", "Kuantum hesaplama", "Roket bilimi"],
     correctAnswer: 1,
     difficulty: 'hard',
-    prize: "100.000 TL"
+    prize: ""
   },
   {
-    id: 18,
+    id: 37,
     question: "Higgs bozonu hangi alanda önemli bir keşiftir?",
     options: ["Biyoloji", "Kimya", "Parçacık fiziği", "Astronomi"],
     correctAnswer: 2,
     difficulty: 'hard',
-    prize: "250.000 TL"
+    prize: ""
+  },
+  {
+    id: 38,
+    question: "Schrödinger denklemi hangi alanda kullanılır?",
+    options: ["Klasik mekanik", "Kuantum mekaniği", "Termodinamik", "Elektromanyetizma"],
+    correctAnswer: 1,
+    difficulty: 'hard',
+    prize: ""
+  },
+  {
+    id: 39,
+    question: "Hawking radyasyonu neyle ilgilidir?",
+    options: ["Nötron yıldızları", "Kara delikler", "Quasarlar", "Süpernovalar"],
+    correctAnswer: 1,
+    difficulty: 'hard',
+    prize: ""
+  },
+  {
+    id: 40,
+    question: "P vs NP problemi hangi alanda önemli bir sorundur?",
+    options: ["Fizik", "Kimya", "Bilgisayar bilimi", "Biyoloji"],
+    correctAnswer: 2,
+    difficulty: 'hard',
+    prize: ""
+  },
+  {
+    id: 41,
+    question: "LHC (Large Hadron Collider) hangi organizasyon tarafından işletilir?",
+    options: ["NASA", "CERN", "MIT", "Stanford"],
+    correctAnswer: 1,
+    difficulty: 'hard',
+    prize: ""
+  },
+  {
+    id: 42,
+    question: "Riemann hipotezi hangi matematik alanıyla ilgilidir?",
+    options: ["Cebir", "Geometri", "Sayılar teorisi", "Topoloji"],
+    correctAnswer: 2,
+    difficulty: 'hard',
+    prize: ""
   },
 
   // ZOR SORULAR (Teknoloji & Felsefe)
   {
-    id: 19,
+    id: 43,
     question: "Blockchain teknolojisinin temelini atan ilk kripto para nedir?",
     options: ["Ethereum", "Bitcoin", "Litecoin", "Ripple"],
     correctAnswer: 1,
     difficulty: 'hard',
-    prize: "500.000 TL"
+    prize: ""
   },
   {
-    id: 20,
+    id: 44,
     question: "Hangi felsefi akım 'Cogito ergo sum' (Düşünüyorum, öyleyse varım) sözüyle bilinir?",
     options: ["Empirizm", "Rasyonalizm", "Fenomenoloji", "Egzistansiyalizm"],
     correctAnswer: 1,
     difficulty: 'hard',
-    prize: "1.000.000 TL"
+    prize: ""
   },
   {
-    id: 21,
+    id: 45,
     question: "Machine Learning'de 'overfitting' ne anlama gelir?",
     options: ["Veri eksikliği", "Aşırı uyum", "Hızlı öğrenme", "Veri fazlalığı"],
     correctAnswer: 1,
     difficulty: 'hard',
-    prize: "500.000 TL"
+    prize: ""
   },
   {
-    id: 22,
+    id: 46,
     question: "Gödel'in Eksiklik Teoremi hangi alanla ilgilidir?",
     options: ["Fizik", "Matematik", "Biyoloji", "Kimya"],
     correctAnswer: 1,
     difficulty: 'hard',
-    prize: "1.000.000 TL"
+    prize: ""
+  },
+  {
+    id: 47,
+    question: "Turing testi neyi ölçer?",
+    options: ["Bilgisayar hızı", "Yapay zeka", "Ağ güvenliği", "Veri depolama"],
+    correctAnswer: 1,
+    difficulty: 'hard',
+    prize: ""
+  },
+  {
+    id: 48,
+    question: "Blockchain teknolojisinde 'consensus' algoritması ne işe yarar?",
+    options: ["Veri şifreleme", "Ağ güvenliği", "Mutabakat sağlama", "Hız artırma"],
+    correctAnswer: 2,
+    difficulty: 'hard',
+    prize: ""
+  },
+  {
+    id: 49,
+    question: "Nietzsche'nin 'Übermensch' kavramı neyi ifade eder?",
+    options: ["Süper güç", "Üst insan", "İlahi varlık", "Evrimsel aşama"],
+    correctAnswer: 1,
+    difficulty: 'hard',
+    prize: ""
+  },
+  {
+    id: 50,
+    question: "Kant'ın 'kategorik imperatif' kavramı hangi alanla ilgilidir?",
+    options: ["Metafizik", "Epistemoloji", "Etik", "Estetik"],
+    correctAnswer: 2,
+    difficulty: 'hard',
+    prize: ""
+  },
+
+  // ZOR SORULAR (İleri Matematik & Fizik)
+  {
+    id: 51,
+    question: "Özel görelilik teorisinde Lorentz dönüşümü neyi açıklar?",
+    options: ["Kütle artışı", "Zaman genişlemesi", "Uzay büzülmesi", "Hepsini"],
+    correctAnswer: 3,
+    difficulty: 'hard',
+    prize: ""
+  },
+  {
+    id: 52,
+    question: "Navier-Stokes denklemleri hangi alanda kullanılır?",
+    options: ["Akışkanlar mekaniği", "Kuantum mekaniği", "Termodinamik", "Elektromanyetizma"],
+    correctAnswer: 0,
+    difficulty: 'hard',
+    prize: ""
+  },
+  {
+    id: 53,
+    question: "Standard Model'de kaç temel parçacık vardır?",
+    options: ["12", "17", "24", "36"],
+    correctAnswer: 1,
+    difficulty: 'hard',
+    prize: ""
+  },
+  {
+    id: 54,
+    question: "Penrose döşemesi hangi matematik alanında önemlidir?",
+    options: ["Cebirsel topoloji", "Fraktal geometri", "Quasicrystal yapıları", "Grup teorisi"],
+    correctAnswer: 2,
+    difficulty: 'hard',
+    prize: ""
+  },
+  {
+    id: 55,
+    question: "Popper'ın yanlışlanabilirlik kuramı neyi savunur?",
+    options: ["Bilimsel teorilerin doğrulanması", "Bilimsel teorilerin test edilebilirliği", "Matematiksel ispatların geçerliliği", "Mantıksal çıkarımların kesinliği"],
+    correctAnswer: 1,
+    difficulty: 'hard',
+    prize: ""
+  },
+  {
+    id: 56,
+    question: "Wittgenstein'ın 'dil oyunları' teorisi neyi ifade eder?",
+    options: ["Dilin sosyal bağlamı", "Matematiksel mantık", "Sembolik mantık", "Formal sistemler"],
+    correctAnswer: 0,
+    difficulty: 'hard',
+    prize: ""
+  },
+  {
+    id: 57,
+    question: "Thomas Kuhn'un 'paradigma değişimi' kavramı bilim tarihinde neyi açıklar?",
+    options: ["Bilimsel devrimleri", "Teknolojik gelişmeleri", "Sosyal değişimleri", "Kültürel dönüşümleri"],
+    correctAnswer: 0,
+    difficulty: 'hard',
+    prize: ""
+  },
+  {
+    id: 58,
+    question: "Hilbert'in 23 problemi hangi alanda önem taşır?",
+    options: ["20. yüzyıl fiziği", "20. yüzyıl matematiği", "20. yüzyıl felsefesi", "20. yüzyıl kimyası"],
+    correctAnswer: 1,
+    difficulty: 'hard',
+    prize: ""
+  },
+  {
+    id: 59,
+    question: "Chaos teorisinde 'kelebek etkisi' neyi ifade eder?",
+    options: ["Doğrusal değişim", "Hassas başlangıç koşulları", "Simetrik dönüşümler", "Periyodik davranış"],
+    correctAnswer: 1,
+    difficulty: 'hard',
+    prize: ""
+  },
+  {
+    id: 60,
+    question: "Mandelbrot kümesi hangi matematik alanında önemlidir?",
+    options: ["Lineer cebir", "Diferansiyel denklemler", "Fraktal geometri", "Sayı teorisi"],
+    correctAnswer: 2,
+    difficulty: 'hard',
+    prize: ""
   }
 ];
 
+// Sabit ödül listesi - Kim Milyoner Olmak İster tarzı
+const PRIZE_LADDER = [
+  "1.000 TL",      // Soru 1
+  "2.000 TL",      // Soru 2  
+  "3.000 TL",      // Soru 3
+  "5.000 TL",      // Soru 4
+  "10.000 TL",     // Soru 5
+  "20.000 TL",     // Soru 6
+  "40.000 TL",     // Soru 7
+  "80.000 TL",     // Soru 8
+  "160.000 TL",    // Soru 9
+  "1.000.000 TL"   // Soru 10 (Büyük Ödül)
+];
+
 // Her oyunda farklı sorular seçmek için rastgele soru seçici
-const getRandomQuestions = (): Question[] => {
+const getRandomQuestions = (prizeLadder: string[]): Question[] => {
   const easyQuestions = QUESTION_POOL.filter(q => q.difficulty === 'easy');
   const mediumQuestions = QUESTION_POOL.filter(q => q.difficulty === 'medium');
   const hardQuestions = QUESTION_POOL.filter(q => q.difficulty === 'hard');
@@ -234,16 +556,15 @@ const getRandomQuestions = (): Question[] => {
   };
 
   // Her zorluk seviyesinden rastgele seç
-  const selectedEasy = shuffleArray(easyQuestions).slice(0, 3);
-  const selectedMedium = shuffleArray(mediumQuestions).slice(0, 4);
-  const selectedHard = shuffleArray(hardQuestions).slice(0, 3);
+  const selectedEasy = shuffleArray(easyQuestions).slice(0, 3);     // Soru 1-3: Kolay
+  const selectedMedium = shuffleArray(mediumQuestions).slice(0, 4);  // Soru 4-7: Orta  
+  const selectedHard = shuffleArray(hardQuestions).slice(0, 3);     // Soru 8-10: Zor
 
-  // Ödül miktarlarını sırayla ata
-  const prizes = ["1.000 TL", "2.000 TL", "5.000 TL", "10.000 TL", "25.000 TL", "50.000 TL", "100.000 TL", "250.000 TL", "500.000 TL", "1.000.000 TL"];
-  
+  // Soruları birleştir ve sabit ödülleri ata
   const finalQuestions = [...selectedEasy, ...selectedMedium, ...selectedHard];
+  
   finalQuestions.forEach((question, index) => {
-    question.prize = prizes[index];
+    question.prize = prizeLadder[index];  // Sabit ödül sistemi
     question.id = index + 1;
   });
 
@@ -254,6 +575,21 @@ const getRandomQuestions = (): Question[] => {
 
 export default function QuizGameScreen() {
   const { theme } = useTheme();
+  
+  // Sabit ödül sistemi
+  const CURRENT_PRIZE_LADDER = [
+    "1.000 TL",      // Soru 1
+    "2.000 TL",      // Soru 2  
+    "3.000 TL",      // Soru 3
+    "5.000 TL",      // Soru 4
+    "10.000 TL",     // Soru 5
+    "20.000 TL",     // Soru 6
+    "40.000 TL",     // Soru 7
+    "80.000 TL",     // Soru 8
+    "160.000 TL",    // Soru 9
+    "1.000.000 TL"   // Soru 10 (Büyük Ödül)
+  ];
+  
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [gameState, setGameState] = useState<'playing' | 'won' | 'lost' | 'start'>('start');
@@ -266,7 +602,7 @@ export default function QuizGameScreen() {
   });
   const [showingLifeline, setShowingLifeline] = useState<string | null>(null);
   const [totalWinnings, setTotalWinnings] = useState('0 TL');
-  const [gameQuestions, setGameQuestions] = useState<Question[]>(getRandomQuestions());
+  const [gameQuestions, setGameQuestions] = useState<Question[]>(getRandomQuestions(CURRENT_PRIZE_LADDER));
 
   const progressWidth = useSharedValue(0);
   const questionScale = useSharedValue(1);
@@ -302,7 +638,7 @@ export default function QuizGameScreen() {
 
   const startGame = () => {
     // Her oyunda yeni sorular seç
-    setGameQuestions(getRandomQuestions());
+    setGameQuestions(getRandomQuestions(CURRENT_PRIZE_LADDER));
     setGameState('playing');
     setCurrentQuestion(0);
     setSelectedAnswer(null);
@@ -316,8 +652,9 @@ export default function QuizGameScreen() {
     const question = gameQuestions[currentQuestion];
     
     if (answerIndex === question.correctAnswer) {
-      // Doğru cevap
-      setTotalWinnings(question.prize);
+      // Doğru cevap - CURRENT_PRIZE_LADDER'dan doğru ödülü al
+      const currentPrize = CURRENT_PRIZE_LADDER[currentQuestion];
+      setTotalWinnings(currentPrize);
       
       if (currentQuestion === gameQuestions.length - 1) {
         // Oyun kazanıldı
@@ -342,7 +679,7 @@ export default function QuizGameScreen() {
       if (newLives <= 0) {
         setGameState('lost');
       } else {
-        // Hayat hakkı kullanarak devam
+        // Hayat hakkı kullanarak devam - kazancı koru
         Alert.alert(
           'Yanlış Cevap!',
           `Bir hayat hakkı kaybettiniz. Kalan: ${newLives}`,
@@ -506,7 +843,7 @@ export default function QuizGameScreen() {
             Soru {currentQuestion + 1}/10
           </Text>
           <Text style={[styles.currentPrize, { color: theme.colors.primary[400] }]}>
-            {question.prize}
+            {CURRENT_PRIZE_LADDER[currentQuestion]}
           </Text>
         </View>
         
@@ -759,6 +1096,7 @@ const styles = StyleSheet.create({
   },
   endButton: {
     flex: 1,
+    height: 56,
   },
   header: {
     flexDirection: 'row',

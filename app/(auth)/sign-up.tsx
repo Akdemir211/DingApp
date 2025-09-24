@@ -10,6 +10,17 @@ import { Mail, Lock, User, ArrowLeft } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { z } from 'zod';
+
+const signUpSchema = z.object({
+  name: z.string().min(1, 'İsim gerekli'),
+  email: z.string().min(1, 'E-posta adresi gerekli').email('Geçerli bir e-posta adresi girin'),
+  password: z.string().min(6, 'Şifre en az 6 karakter olmalı'),
+  confirmPassword: z.string().min(1, 'Şifre tekrarı gerekli')
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'Şifreler eşleşmiyor',
+  path: ['confirmPassword'],
+});
 
 export default function SignUpScreen() {
   const [name, setName] = useState('');
@@ -30,30 +41,19 @@ export default function SignUpScreen() {
   }, [cooldown]);
   
   const validateForm = () => {
-    const newErrors: { name?: string; email?: string; password?: string; confirmPassword?: string } = {};
-    
-    if (!name) {
-      newErrors.name = 'İsim gerekli';
+    const result = signUpSchema.safeParse({ name, email, password, confirmPassword });
+    if (!result.success) {
+      const fieldErrors = result.error.flatten().fieldErrors as Record<string, string[]>;
+      setErrors({
+        name: fieldErrors.name?.[0],
+        email: fieldErrors.email?.[0],
+        password: fieldErrors.password?.[0],
+        confirmPassword: fieldErrors.confirmPassword?.[0],
+      });
+      return false;
     }
-    
-    if (!email) {
-      newErrors.email = 'E-posta adresi gerekli';
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Geçerli bir e-posta adresi girin';
-    }
-    
-    if (!password) {
-      newErrors.password = 'Şifre gerekli';
-    } else if (password.length < 6) {
-      newErrors.password = 'Şifre en az 6 karakter olmalı';
-    }
-    
-    if (password !== confirmPassword) {
-      newErrors.confirmPassword = 'Şifreler eşleşmiyor';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setErrors({});
+    return true;
   };
   
   const handleSignUp = async () => {
@@ -67,7 +67,7 @@ export default function SignUpScreen() {
       });
     } catch (error: any) {
       if (error.message?.includes('over_email_send_rate_limit')) {
-        const waitTime = parseInt(error.message.match(/\d+/)[0] || '60');
+        const waitTime = parseInt(error.message.match(/\d+/)?.[0] || '60');
         setCooldown(waitTime);
         setErrors({
           email: `Güvenlik nedeniyle ${waitTime} saniye beklemeniz gerekiyor.`

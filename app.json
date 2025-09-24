@@ -20,7 +20,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.akdemir211.dingapp",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "Profil fotoğrafı seçmek için fotoğraf kütüphanesine erişim gerekiyor.",
+        "NSCameraUsageDescription": "Profil fotoğrafı çekmek için kameraya erişim gerekiyor.",
+        "NSMicrophoneUsageDescription": "Sesli özellikler için mikrofona erişim gerekiyor."
       }
     },
     "android": {
@@ -36,7 +39,10 @@
     },
     "plugins": [
       "expo-router",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-font",
+      "expo-secure-store",
+      "sentry-expo"
     ],
     "experiments": {
       "typedRoutes": true,

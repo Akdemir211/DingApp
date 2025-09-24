@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Session, User } from '@supabase/supabase-js';
 import { router } from 'expo-router';
+import { registerForPushNotificationsAsync } from '@/lib/notifications';
 
 interface AuthContextType {
   user: User | null;
@@ -31,12 +32,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      if (session?.user?.id) registerForPushNotificationsAsync(session.user.id);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      if (session?.user?.id) registerForPushNotificationsAsync(session.user.id);
     });
 
     return () => subscription.unsubscribe();
@@ -50,6 +53,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       if (error) throw error;
       
+      if (supabase.auth.getUser) {
+        const { data } = await supabase.auth.getUser();
+        if (data.user?.id) registerForPushNotificationsAsync(data.user.id);
+      }
+
       router.replace('/(tabs)');
     } catch (error: any) {
       throw error;
@@ -84,6 +92,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error('Error creating user profile:', profileError);
           // Continue anyway - user is created in auth.users
         }
+
+        registerForPushNotificationsAsync(data.user.id);
       }
 
       // Automatically sign in after signup

@@ -9,9 +9,30 @@ import { AuthProvider } from '@/context/AuthContext';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import { TabBarProvider } from '@/context/TabBarContext';
+import Constants from 'expo-constants';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+let sentryInited = false;
+function initSentry() {
+  try {
+    if (sentryInited) return;
+    if (Constants.appOwnership === 'expo') return;
+    const Sentry = require('sentry-expo');
+    Sentry.init({
+      dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || undefined,
+      enableInExpoDevelopment: true,
+      debug: process.env.EXPO_PUBLIC_DEBUG_MODE === 'true',
+    });
+    sentryInited = true;
+  } catch (e) {
+    // ignore
+  }
+}
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
+initSentry();
+
+const queryClient = new QueryClient();
 
 function AppContent() {
   const { themeMode } = useTheme();
@@ -94,16 +115,20 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <LanguageProvider>
-        <ThemeProvider>
-          <TabBarProvider>
-            <AuthProvider>
-              <AppContent />
-            </AuthProvider>
-          </TabBarProvider>
-        </ThemeProvider>
-      </LanguageProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <LanguageProvider>
+          <ThemeProvider>
+            <TabBarProvider>
+              <AuthProvider>
+                <QueryClientProvider client={queryClient}>
+                  <AppContent />
+                </QueryClientProvider>
+              </AuthProvider>
+            </TabBarProvider>
+          </ThemeProvider>
+        </LanguageProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

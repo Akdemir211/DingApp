@@ -10,6 +10,12 @@ import { Mail, Lock, ArrowLeft } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { z } from 'zod';
+
+const signInSchema = z.object({
+  email: z.string().min(1, 'E-posta adresi gerekli').email('Geçerli bir e-posta adresi girin'),
+  password: z.string().min(1, 'Şifre gerekli')
+});
 
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
@@ -19,20 +25,17 @@ export default function SignInScreen() {
   const { theme } = useTheme();
   
   const validateForm = () => {
-    const newErrors: { email?: string; password?: string } = {};
-    
-    if (!email) {
-      newErrors.email = 'E-posta adresi gerekli';
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Geçerli bir e-posta adresi girin';
+    const result = signInSchema.safeParse({ email, password });
+    if (!result.success) {
+      const fieldErrors = result.error.flatten().fieldErrors;
+      setErrors({
+        email: fieldErrors.email?.[0],
+        password: fieldErrors.password?.[0],
+      });
+      return false;
     }
-    
-    if (!password) {
-      newErrors.password = 'Şifre gerekli';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setErrors({});
+    return true;
   };
   
   const handleSignIn = async () => {

@@ -10,7 +10,7 @@ import { Button } from '@/components/UI/Button';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { MessageSquare, Lock, Users, Search, Plus, Trash2, Crown, Hash, Shield } from 'lucide-react-native';
+import { MessageSquare, Lock, Users, Search, Plus, Trash2, Crown, Hash, Shield, LineChart, FlaskConical, Microscope, Book, BookOpen, Globe, Code, BarChart3, Calculator, Atom } from 'lucide-react-native';
 import { FloatingBubbleBackground } from '@/components/UI/FloatingBubble';
 import { useChat } from '@/hooks/useChat';
 import { CreateRoomModal } from '@/components/Chat/CreateRoomModal';
@@ -139,6 +139,51 @@ export default function ChatScreen() {
       handleJoinRoom(room.id, room.is_private, room.name);
     };
 
+    function renderSubjectIcon() {
+      if (room.is_private) {
+        return isProRoom ? (
+          <Crown size={20} color={theme.colors.medal.gold} />
+        ) : (
+          <Lock size={20} color={theme.colors.primary[400]} />
+        );
+      }
+      const name = (room.name || '').toLowerCase();
+      if (name.includes('matematik') || name.includes('geometri')) {
+        return <LineChart size={20} color={theme.colors.primary[400]} />;
+      }
+      if (name.includes('fizik')) {
+        return <Atom size={20} color={theme.colors.primary[400]} />;
+      }
+      if (name.includes('kimya')) {
+        return <FlaskConical size={20} color={theme.colors.primary[400]} />;
+      }
+      if (name.includes('biyoloji')) {
+        return <Microscope size={20} color={theme.colors.primary[400]} />;
+      }
+      if (name.includes('tarih')) {
+        return <Book size={20} color={theme.colors.primary[400]} />;
+      }
+      if (name.includes('coğrafya') || name.includes('cografya')) {
+        return <Globe size={20} color={theme.colors.primary[400]} />;
+      }
+      if (name.includes('edebiyat') || name.includes('türk') || name.includes('turk') || name.includes('dil')) {
+        return <BookOpen size={20} color={theme.colors.primary[400]} />;
+      }
+      if (name.includes('ingilizce') || name.includes('english')) {
+        return <Globe size={20} color={theme.colors.primary[400]} />;
+      }
+      if (name.includes('program') || name.includes('yazılım') || name.includes('yazilim') || name.includes('bilgisayar') || name.includes('kod')) {
+        return <Code size={20} color={theme.colors.primary[400]} />;
+      }
+      if (name.includes('ekonomi') || name.includes('finans')) {
+        return <BarChart3 size={20} color={theme.colors.primary[400]} />;
+      }
+      if (name.includes('aritmetik') || name.includes('hesap') || name.includes('sayı') || name.includes('sayi')) {
+        return <Calculator size={20} color={theme.colors.primary[400]} />;
+      }
+      return <Hash size={20} color={theme.colors.success} />;
+    }
+
     return (
       <Animated.View 
         entering={SlideInDown.delay(delay).duration(600).springify()}
@@ -161,15 +206,7 @@ export default function ChatScreen() {
           
           <View style={styles.roomHeader}>
             <View style={[styles.roomIconContainer, { backgroundColor: theme.colors.background.elevated }]}>
-              {room.is_private ? (
-                isProRoom ? (
-                  <Crown size={20} color={theme.colors.medal.gold} />
-                ) : (
-                  <Lock size={20} color={theme.colors.primary[400]} />
-                )
-              ) : (
-                <Hash size={20} color={theme.colors.success} />
-              )}
+              {renderSubjectIcon()}
             </View>
             
             <View style={styles.roomInfo}>

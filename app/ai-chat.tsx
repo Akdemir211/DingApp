@@ -1088,6 +1088,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background.darker,
     borderBottomWidth: 1,
     borderBottomColor: Colors.darkGray[800],
+    marginTop: -8,
   },
   backButton: {
     width: 40,
